@@ -521,10 +521,6 @@ class QuranTextPage extends StatelessWidget {
                                 ayah,
                               ),
                             ),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: _VerseNumberMarker(number: ayah.number),
-                            ),
                             const TextSpan(text: ' '),
                           ],
                         ],
@@ -598,46 +594,6 @@ const _wholeAyahDifferenceStyle = TextStyle(
   backgroundColor: Color(0x1F61A06C),
   color: Color(0xff174d20),
 );
-
-class _VerseNumberMarker extends StatelessWidget {
-  const _VerseNumberMarker({required this.number});
-
-  final int number;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsetsDirectional.only(start: 5, end: 2),
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xffeef3e9),
-      ),
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: Center(
-          child: Text(
-            _toArabicDigits(number),
-            textDirection: TextDirection.rtl,
-            style: const TextStyle(
-              fontFamily: 'NotoSansArabic',
-              fontSize: 11,
-              height: 1,
-              fontWeight: FontWeight.w700,
-              color: _green,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-String _toArabicDigits(int value) => value
-    .toString()
-    .split('')
-    .map((digit) => String.fromCharCode('٠'.codeUnitAt(0) + int.parse(digit)))
-    .join();
 
 class DifferencesDrawer extends StatelessWidget {
   const DifferencesDrawer({
