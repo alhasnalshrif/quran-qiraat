@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'dart:ui';
 
+import 'package:flutter/material.dart';
 import 'package:quran_qiraat/quran_qiraat.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,8 +74,12 @@ void main() {
       QuranQiraatApp(preferences: preferences, quran: quran),
     );
 
-    expect(find.text('مصحف حفص بالهامش'), findsOneWidget);
-    expect(find.text('مصحف حفص وبهامشه شعبة'), findsOneWidget);
-    expect(find.text('مصحف حفص وبهامشه قالون'), findsOneWidget);
+    expect(find.text('مصحف القراءات'), findsOneWidget);
+    expect(find.text('القراءة'), findsOneWidget);
+    expect(find.text('حفص عن عاصم'), findsOneWidget);
+    expect(
+      Directionality.of(tester.element(find.byType(Scaffold))),
+      TextDirection.rtl,
+    );
   });
 }

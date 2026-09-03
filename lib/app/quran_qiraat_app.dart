@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_repository.dart';
-import '../features/home/mushaf_picker_page.dart';
+import '../features/reader/mushaf_reader_page.dart';
 
 class QuranQiraatApp extends StatelessWidget {
   const QuranQiraatApp({
@@ -23,10 +23,18 @@ class QuranQiraatApp extends StatelessWidget {
     scrollBehavior: const QuranScrollBehavior(),
     theme: ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff0d6249)),
-      scaffoldBackgroundColor: const Color(0xfff8f5ed),
+      fontFamily: 'NotoSansArabic',
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xff4f9259),
+        surface: const Color(0xfffffdf7),
+      ),
+      scaffoldBackgroundColor: const Color(0xfffffdf7),
     ),
-    home: MushafPickerPage(preferences: preferences, quran: quran),
+    builder: (context, child) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: child ?? const SizedBox.shrink(),
+    ),
+    home: MushafReaderPage(preferences: preferences, quran: quran),
   );
 }
 

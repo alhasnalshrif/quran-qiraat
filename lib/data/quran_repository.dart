@@ -21,6 +21,13 @@ class QuranRepository {
 
   List<Ayah> page(int pageNumber) => hafsByPage[pageNumber] ?? const <Ayah>[];
 
+  List<Ayah> pageForReading(QuranReading reading, int pageNumber) {
+    final hafsPage = page(pageNumber);
+    if (reading == QuranReading.hafs) return hafsPage;
+    final variants = reading == QuranReading.shubah ? shubah : qalun;
+    return [for (final hafs in hafsPage) variants[hafs.key] ?? hafs];
+  }
+
   List<MarginDifference> differencesFor(
     MarginRiwayah riwayah,
     List<Ayah> hafsVerses,

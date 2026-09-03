@@ -1,11 +1,11 @@
 {
-    "name": "quran_qiraat",
-    "short_name": "quran_qiraat",
+    "name": "مصحف القراءات",
+    "short_name": "مصحف القراءات",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFDF7",
+    "theme_color": "#4F9259",
+    "description": "مصحف القراءات يعمل دون إنترنت.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
