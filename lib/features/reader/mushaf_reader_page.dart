@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:quran_qiraat/domain/models/ayah.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/quran_repository.dart';
