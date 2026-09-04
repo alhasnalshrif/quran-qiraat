@@ -54,14 +54,14 @@ void main() {
       matchesGoldenFile('goldens/reader_rtl.png'),
     );
 
-    await tester.tap(find.text('شعبة عن عاصم'));
+    await tester.tap(find.text('شعبة × حفص'));
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(QuranQiraatApp),
       matchesGoldenFile('goldens/reading_sheet_rtl.png'),
     );
 
-    await tester.tap(find.text('شعبة عن عاصم').last);
+    await tester.tap(find.text('تأكيد المقارنة'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('الفروق'));
     await tester.pumpAndSettle();

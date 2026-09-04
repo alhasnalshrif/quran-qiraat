@@ -545,8 +545,8 @@ void main() {
         TextDirection.rtl,
       );
       expect(find.text('مصحف القراءات'), findsOneWidget);
-      expect(find.text('القراءة'), findsOneWidget);
-      expect(find.text('حفص عن عاصم'), findsOneWidget);
+      expect(find.text('القراءتان'), findsOneWidget);
+      expect(find.text('حفص × شعبة'), findsOneWidget);
     });
   });
 }

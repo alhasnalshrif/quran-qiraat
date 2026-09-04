@@ -76,8 +76,8 @@ void main() {
     );
 
     expect(find.text('مصحف القراءات'), findsOneWidget);
-    expect(find.text('القراءة'), findsOneWidget);
-    expect(find.text('حفص عن عاصم'), findsOneWidget);
+    expect(find.text('القراءتان'), findsOneWidget);
+    expect(find.text('حفص × شعبة'), findsOneWidget);
     expect(
       Directionality.of(tester.element(find.byType(Scaffold))),
       TextDirection.rtl,
@@ -133,7 +133,7 @@ void main() {
         home: QuranTextPage(
           page: 1,
           reading: QuranReading.hafs,
-          highlightRiwayah: MarginRiwayah.shubah,
+          comparisonReading: QuranReading.shubah,
           quran: quran,
         ),
       ),
@@ -141,6 +141,14 @@ void main() {
 
     expect(find.byKey(const ValueKey('mushaf-line-1-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('mushaf-line-1-2')), findsOneWidget);
-    expect(find.text('ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ'), findsOneWidget);
+    expect(find.text('ٱلْحَمْدُ'), findsOneWidget);
+
+    await tester.tap(find.text('ٱلْحَمْدُ'));
+    await tester.pumpAndSettle();
+    expect(find.text('موضع 1:2:1'), findsOneWidget);
+    expect(
+      find.text('لا توجد محاذاة فرق معتمدة لهذه الكلمة في البيانات الحالية.'),
+      findsOneWidget,
+    );
   });
 }

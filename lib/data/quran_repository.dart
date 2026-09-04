@@ -54,6 +54,51 @@ class QuranRepository {
     return [for (final hafs in hafsPage) variants[hafs.key] ?? hafs];
   }
 
+  /// Finds a reviewed difference for an explicitly selected reading pair.
+  /// The lookup is symmetric so the UI can swap the primary and review readings.
+  ReadingDifference? publishedDifferenceForWord({
+    required QuranReading baseReading,
+    required QuranReading comparisonReading,
+    required int surah,
+    required int ayah,
+    required int wordIndex,
+  }) {
+    for (final difference in publishedDifferences) {
+      final isForward =
+          difference.baseReading == baseReading &&
+          difference.targetReading == comparisonReading &&
+          difference.baseSpan.surah == surah &&
+          difference.baseSpan.ayah == ayah &&
+          difference.baseSpan.containsWord(wordIndex);
+      final isReverse =
+          difference.targetReading == baseReading &&
+          difference.baseReading == comparisonReading &&
+          difference.targetSpan.surah == surah &&
+          difference.targetSpan.ayah == ayah &&
+          difference.targetSpan.containsWord(wordIndex);
+      if (isForward || isReverse) return difference;
+    }
+    return null;
+  }
+
+  /// Returns an ayah only when the datasets share an explicit ayah key.
+  /// This is deliberately not a word alignment across readings.
+  Ayah? ayahForReading(QuranReading reading, String ayahKey) =>
+      switch (reading) {
+        QuranReading.hafs => _ayahForKey(ayahKey),
+        QuranReading.shubah => shubah[ayahKey],
+        QuranReading.qalun => qalun[ayahKey],
+      };
+
+  Ayah? _ayahForKey(String key) {
+    for (final ayahs in hafsByPage.values) {
+      for (final ayah in ayahs) {
+        if (ayah.key == key) return ayah;
+      }
+    }
+    return null;
+  }
+
   // ---------------------------------------------------------------------------
   // Published / Reviewed Differences API
   // ---------------------------------------------------------------------------
