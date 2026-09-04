@@ -7,13 +7,16 @@ import '../domain/models/candidate_difference_record.dart';
 import '../domain/models/margin_difference.dart';
 import '../domain/models/margin_riwayah.dart';
 import '../domain/models/mushaf_edition.dart';
+import '../domain/models/mushaf_layout.dart';
 import '../domain/models/reading_difference.dart';
+import 'mushaf_layout_repository.dart';
 
 class QuranRepository {
   const QuranRepository({
     required this.hafsByPage,
     required this.shubah,
     required this.qalun,
+    this.hafsLayout,
     this.manifest = MushafManifest.bundledDefault,
     this.publishedDifferences = const [],
     this.candidateDifferences = const [],
@@ -25,6 +28,10 @@ class QuranRepository {
   final Map<int, List<Ayah>> hafsByPage;
   final Map<String, Ayah> shubah;
   final Map<String, Ayah> qalun;
+
+  /// Vetted, source-pinned line layout for the Hafs Madani 604-page edition.
+  /// Null only in narrow test fixtures or if the caller intentionally omits it.
+  final MushafLayout? hafsLayout;
 
   /// Published, peer-reviewed reading differences vetted for public display.
   final List<ReadingDifference> publishedDifferences;
@@ -247,14 +254,15 @@ class QuranRepository {
       rootBundle.loadString('assets/quran_shubah.json'),
       rootBundle.loadString('assets/quran_qalun.json'),
       rootBundle.loadString('assets/differences_taisir.json'),
+      MushafLayoutRepository.loadHafsMadani604(),
     ]);
 
     final manifest = MushafManifest.fromJson(
-      jsonDecode(files[0]) as Map<String, dynamic>,
+      jsonDecode(files[0] as String) as Map<String, dynamic>,
     );
-    final hafs = _parseAyahs(files[1], isHafs: true);
-    final shubah = _parseAyahs(files[2]);
-    final qalun = _parseAyahs(files[3]);
+    final hafs = _parseAyahs(files[1] as String, isHafs: true);
+    final shubah = _parseAyahs(files[2] as String);
+    final qalun = _parseAyahs(files[3] as String);
 
     final hafsByPage = <int, List<Ayah>>{};
     for (final ayah in hafs) {
@@ -266,7 +274,7 @@ class QuranRepository {
 
     // Parse differences_taisir.json strictly as raw candidate locators without synthetic alignment.
     final candidateDifferences = _parseCandidateDifferences(
-      files[4],
+      files[4] as String,
       hafsMap: {for (final a in hafs) a.key: a},
     );
 
@@ -277,6 +285,7 @@ class QuranRepository {
       qalun: qalunMap,
       publishedDifferences: const [], // No bundled candidate data is published without scholarly review.
       candidateDifferences: candidateDifferences,
+      hafsLayout: files[5] as MushafLayout,
       differenceWords: const {}, // Legacy map remains empty in production.
     );
   }

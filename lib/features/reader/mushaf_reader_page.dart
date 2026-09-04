@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/quran_repository.dart';
 import '../../domain/models/margin_difference.dart';
 import '../../domain/models/margin_riwayah.dart';
+import '../../domain/models/mushaf_layout.dart';
 
 const _green = Color(0xff4f9259);
 const _paper = Color(0xfffffdf7);
@@ -448,6 +449,13 @@ class QuranTextPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (reading == QuranReading.hafs) {
+      final layoutPage = quran.hafsLayout?.page(page);
+      if (layoutPage == null) {
+        return const _LayoutUnavailablePage();
+      }
+      return _HafsLineLayoutPage(page: layoutPage);
+    }
     final verses = quran.pageForReading(reading, page);
     final surahNames = quran
         .page(page)
@@ -582,6 +590,146 @@ class QuranTextPage extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LayoutUnavailablePage extends StatelessWidget {
+  const _LayoutUnavailablePage();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Padding(
+      padding: EdgeInsets.all(28),
+      child: Text(
+        'تعذر تحميل تخطيط صفحة المصحف الموثق. لن يُستبدل بتدفق نصي تلقائيًا.',
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.rtl,
+      ),
+    ),
+  );
+}
+
+class _HafsLineLayoutPage extends StatelessWidget {
+  const _HafsLineLayoutPage({required this.page});
+
+  final MushafLayoutPage page;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 900,
+            minHeight: math.max(0, constraints.maxHeight - 38),
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x10000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'صفحة ${page.number}',
+                    style: const TextStyle(
+                      color: _green,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Divider(height: 18, color: Color(0xffd9dfd5)),
+                  for (final line in page.lines)
+                    _MushafLine(page: page.number, line: line),
+                  const SizedBox(height: 10),
+                  Text(
+                    '${page.number}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xff685f51),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _MushafLine extends StatelessWidget {
+  const _MushafLine({required this.page, required this.line});
+
+  final int page;
+  final MushafLayoutLine line;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = line.displayText;
+    if (line.type == MushafLayoutLineType.surahHeader) {
+      return Padding(
+        key: ValueKey('mushaf-line-$page-${line.number}'),
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Text(
+          text,
+          textDirection: TextDirection.rtl,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'NotoSansArabic',
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+      );
+    }
+    if (line.type == MushafLayoutLineType.basmala) {
+      return Padding(
+        key: ValueKey('mushaf-line-$page-${line.number}'),
+        padding: const EdgeInsets.only(bottom: 7),
+        child: Text(
+          text.isEmpty ? 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ' : text,
+          textDirection: TextDirection.rtl,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'NotoSansArabic',
+            fontSize: 18,
+            height: 1.35,
+          ),
+        ),
+      );
+    }
+    return Padding(
+      key: ValueKey('mushaf-line-$page-${line.number}'),
+      padding: const EdgeInsets.only(bottom: 3),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerRight,
+        child: Text(
+          text,
+          textDirection: TextDirection.rtl,
+          textAlign: TextAlign.justify,
+          softWrap: false,
+          style: const TextStyle(
+            fontFamily: 'NotoSansArabic',
+            fontSize: 21,
+            height: 1.52,
+            color: Color(0xff151515),
           ),
         ),
       ),

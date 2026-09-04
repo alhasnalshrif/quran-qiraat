@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:quran_qiraat/quran_qiraat.dart';
+import 'package:quran_qiraat/features/reader/mushaf_reader_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -81,5 +82,65 @@ void main() {
       Directionality.of(tester.element(find.byType(Scaffold))),
       TextDirection.rtl,
     );
+  });
+
+  testWidgets('renders Hafs using source-defined lines rather than flow text', (
+    tester,
+  ) async {
+    final layout = MushafLayout(
+      editionId: 'hafs_madani_604',
+      sourceCommit: 'test',
+      pages: List.generate(
+        604,
+        (index) => MushafLayoutPage(
+          number: index + 1,
+          lines: index == 0
+              ? const [
+                  MushafLayoutLine(
+                    number: 1,
+                    type: MushafLayoutLineType.surahHeader,
+                    text: 'سورة الفاتحة',
+                  ),
+                  MushafLayoutLine(
+                    number: 2,
+                    type: MushafLayoutLineType.text,
+                    text: 'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ',
+                    words: [
+                      MushafLayoutWord(location: '1:2:1', text: 'ٱلْحَمْدُ'),
+                    ],
+                  ),
+                ]
+              : const [
+                  MushafLayoutLine(
+                    number: 1,
+                    type: MushafLayoutLineType.text,
+                    text: 'نص',
+                    words: [MushafLayoutWord(location: '1:1:1', text: 'نص')],
+                  ),
+                ],
+        ),
+      ),
+    );
+    final quran = QuranRepository(
+      hafsByPage: const {},
+      shubah: const {},
+      qalun: const {},
+      hafsLayout: layout,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: QuranTextPage(
+          page: 1,
+          reading: QuranReading.hafs,
+          highlightRiwayah: MarginRiwayah.shubah,
+          quran: quran,
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('mushaf-line-1-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('mushaf-line-1-2')), findsOneWidget);
+    expect(find.text('ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ'), findsOneWidget);
   });
 }

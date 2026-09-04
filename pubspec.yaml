@@ -57,6 +57,7 @@ flutter:
     - assets/quran_shubah.json
     - assets/quran_qalun.json
     - assets/differences_taisir.json
+    - assets/mushaf/layout/hafs_madani_604.json
 
   fonts:
     - family: NotoSansArabic

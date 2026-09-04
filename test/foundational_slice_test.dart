@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('Domain models and manifest', () {
-    test('manifest designates target layout and navigation without claiming current layout capability', () {
+    test('manifest designates the bundled Hafs line layout and navigation', () {
       const manifest = MushafManifest.bundledDefault;
 
       final hafs = manifest.editionFor(QuranReading.hafs);
@@ -13,14 +13,13 @@ void main() {
       final qalun = manifest.editionFor(QuranReading.qalun);
 
       expect(hafs, isNotNull);
-      // Current bundled app has no vetted word/line layout package yet, so isPageLayoutCapable is false.
-      expect(hafs!.isPageLayoutCapable, isFalse);
+      expect(hafs!.isPageLayoutCapable, isTrue);
       expect(hafs.targetPageLayout, 'madani_604');
       expect(hafs.supportsPageNavigation, isTrue);
       expect(hafs.isTextComparisonCapable, isTrue);
       expect(hafs.totalAyahs, 6236);
       expect(hafs.pageCount, 604);
-      expect(manifest.isLayoutCapable(QuranReading.hafs), isFalse);
+      expect(manifest.isLayoutCapable(QuranReading.hafs), isTrue);
       expect(manifest.supportsPageNavigation(QuranReading.hafs), isTrue);
 
       expect(shubah, isNotNull);
@@ -41,6 +40,34 @@ void main() {
 
       expect(manifest.candidateSources, isNotEmpty);
       expect(manifest.candidateSources.first.status, 'candidate_unreviewed');
+    });
+
+    test('bundled Hafs layout has all source-pinned pages and preserves structural lines', () async {
+      final layout = await MushafLayoutRepository.loadHafsMadani604();
+
+      expect(layout.editionId, 'hafs_madani_604');
+      expect(layout.pages, hasLength(604));
+      expect(layout.sourceCommit, '72116ce4d405d67823804f0eed795c1e6409b4af');
+      expect(layout.page(1)!.lines, isNotEmpty);
+      expect(
+        layout
+            .page(2)!
+            .lines
+            .any((line) => line.type == MushafLayoutLineType.basmala),
+        isTrue,
+      );
+      expect(layout.page(604)!.number, 604);
+      expect(
+        layout
+            .page(2)!
+            .lines
+            .where((line) => line.type == MushafLayoutLineType.text)
+            .first
+            .words
+            .first
+            .location,
+        '2:1:1',
+      );
     });
 
     test('CandidateDifferenceRecord models raw locator without asserted target span or performance classification', () {

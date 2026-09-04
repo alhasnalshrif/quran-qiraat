@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0.0",
+  "editionId": "hafs_madani_604",
+  "pageCount": 604,
+  "assetSha256": "73887276f950340a5b11f49928a53a382b05ce75d2be4292b72e4ad227097135",
+  "source": {
+    "repository": "https://github.com/zonetecde/mushaf-layout",
+    "commit": "72116ce4d405d67823804f0eed795c1e6409b4af",
+    "pathTemplate": "mushaf/page-###.json",
+    "license": "ISC"
+  }
+}
