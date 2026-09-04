@@ -510,13 +510,49 @@ class QuranTextPage extends StatelessWidget {
                       ],
                     ),
                     const Divider(height: 24, color: Color(0xffd9dfd5)),
+                    if (reading != QuranReading.hafs) ...[
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xfff8f5ee),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xffe8dfcc)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Iconsax.info_circle,
+                                size: 16,
+                                color: Color(0xff8c703e),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'عرض مقارنة نصية لآيات صفحة حفص؛ لا يطابق تخطيط صفحات مصحف ${reading.shortTitle} الأصلي حتى توفر حزمة التخطيط.',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    height: 1.4,
+                                    color: Color(0xff5f4c27),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Text.rich(
                       TextSpan(
                         children: [
                           for (final ayah in verses) ...[
                             _ayahTextSpan(
                               ayah: ayah,
-                              highlightedWordIndexes: quran.wordsFor(
+                              highlightedWordIndexes: quran.highlightedWordsFor(
                                 highlightRiwayah,
                                 ayah,
                               ),
@@ -612,6 +648,8 @@ class DifferencesDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final differences = quran.differencesFor(riwayah, quran.page(page));
+    final hasCandidate = quran.hasCandidateDifferencesOnPage(riwayah, page);
+
     return Drawer(
       width: math.min(MediaQuery.sizeOf(context).width * .9, 420),
       backgroundColor: _paper,
@@ -659,11 +697,8 @@ class DifferencesDrawer extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: differences.isEmpty
-                  ? const Center(
-                      child: Text('لا توجد اختلافات مسجلة في هذه الصفحة'),
-                    )
-                  : ListView.separated(
+              child: differences.isNotEmpty
+                  ? ListView.separated(
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
                       itemCount: differences.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -672,13 +707,132 @@ class DifferencesDrawer extends StatelessWidget {
                         riwayah: riwayah,
                         quran: quran,
                       ),
-                    ),
+                    )
+                  : hasCandidate
+                  ? const _CandidateUnreviewedNotice()
+                  : _NoDifferencesNotice(riwayah: riwayah),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _CandidateUnreviewedNotice extends StatelessWidget {
+  const _CandidateUnreviewedNotice();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xfff7f3e8),
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Icon(
+                Iconsax.document_filter,
+                size: 32,
+                color: Color(0xff8c703e),
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'بيانات قيد المراجعة العلمية',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Color(0xff222222),
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'توجد مواضع مقارنة أولية في هذه الصفحة مستخرجة من مصادر مرشحة، وتتطلب مراجعة وتحقيقًا علميًا قبل النشر.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xff666666),
+              height: 1.5,
+            ),
+          ),
+          SizedBox(height: 12),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xffeee8da),
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                'البيانات المرشحة لا تُعرض كفروق منشورة',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xff6b5832),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _NoDifferencesNotice extends StatelessWidget {
+  const _NoDifferencesNotice({required this.riwayah});
+
+  final MarginRiwayah riwayah;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xffedf4ee),
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Icon(Iconsax.book_1, size: 32, color: _green),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'لا توجد فروق معتمدة في هذه الصفحة',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Color(0xff222222),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'لم تُسجَّل فروق مراجعة لرواية ${riwayah.shortName} في هذه الصفحة ضمن هذا الإصدار، ولا يعني ذلك حصر جميع وجوه الرواية.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xff666666),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class DifferenceCard extends StatelessWidget {
@@ -694,36 +848,72 @@ class DifferenceCard extends StatelessWidget {
   final QuranRepository quran;
 
   @override
-  Widget build(BuildContext context) => Card(
-    elevation: 0,
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(color: Color(0xffdce7d9)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'الآية ${difference.hafs.surah}:${difference.hafs.number}',
-            style: const TextStyle(color: _green, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          for (final wordIndex in difference.wordIndexes)
-            _ComparisonRow(
-              comparison: quran.comparedWord(
-                hafs: difference.hafs,
-                variant: difference.variant,
-                wordIndex: wordIndex,
-              ),
-              riwayah: riwayah,
-            ),
-        ],
+  Widget build(BuildContext context) {
+    final diff = difference.difference;
+
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xffdce7d9)),
       ),
-    ),
-  );
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'الآية ${difference.hafs.surah}:${difference.hafs.number}',
+                  style: const TextStyle(
+                    color: _green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (diff != null && diff.isOneToMany)
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(0xffe8edf5),
+                      borderRadius: BorderRadius.all(Radius.circular(6)),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      child: Text(
+                        'محاذاة ١:N',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xff2d4f7c),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (diff != null)
+              _ComparisonRow(
+                comparison: quran.comparedDifference(diff),
+                riwayah: riwayah,
+              )
+            else
+              for (final wordIndex in difference.wordIndexes)
+                _ComparisonRow(
+                  comparison: quran.comparedWord(
+                    hafs: difference.hafs,
+                    variant: difference.variant,
+                    wordIndex: wordIndex,
+                  ),
+                  riwayah: riwayah,
+                ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ComparisonRow extends StatelessWidget {
@@ -751,6 +941,15 @@ class _ComparisonRow extends StatelessWidget {
           const Text(
             'اختلاف أداء أو رسم',
             style: TextStyle(fontSize: 11, color: Color(0xff746f65)),
+          ),
+        if (comparison.scholarlyNotes != null &&
+            comparison.scholarlyNotes!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              comparison.scholarlyNotes!,
+              style: const TextStyle(fontSize: 11, color: Color(0xff555555)),
+            ),
           ),
       ],
     ),

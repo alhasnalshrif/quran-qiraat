@@ -52,6 +52,7 @@ dev_dependencies:
 flutter:
 
   assets:
+    - assets/editions_manifest.json
     - assets/quran_hafs.json
     - assets/quran_shubah.json
     - assets/quran_qalun.json

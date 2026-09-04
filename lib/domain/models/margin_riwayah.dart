@@ -45,4 +45,9 @@ extension MarginRiwayahData on MarginRiwayah {
     MarginRiwayah.shubah => 'Shubah',
     MarginRiwayah.qalun => 'Qalun',
   };
+
+  QuranReading toReading() => switch (this) {
+    MarginRiwayah.shubah => QuranReading.shubah,
+    MarginRiwayah.qalun => QuranReading.qalun,
+  };
 }
