@@ -32,7 +32,7 @@ enum AlignmentCardinality {
 /// Encapsulates scholarly vetting status, exact word spans in each reading's
 /// independent numbering, cardinality (1:1, 1:N, N:1), and performance/orthography flags.
 class ReadingDifference {
-  const ReadingDifference({
+  ReadingDifference({
     required this.id,
     required this.baseReading,
     required this.targetReading,
@@ -43,7 +43,9 @@ class ReadingDifference {
     this.scholarlyNotes,
     this.reviewer,
     this.reviewDate,
-  });
+  }) : assert(baseReading != targetReading),
+       assert(baseSpan.reading == baseReading),
+       assert(targetSpan.reading == targetReading);
 
   final String id;
   final QuranReading baseReading;
@@ -127,32 +129,33 @@ class ReadingDifference {
         json['review_status'] as String? ??
         DifferenceReviewStatus.candidate.name;
 
+    final reviewer = json['reviewer'] as String?;
+    final reviewDate = json['review_date'] != null
+        ? DateTime.tryParse(json['review_date'] as String)
+        : null;
+    final reviewStatus = _parseReviewStatus(statusName);
+    if (reviewStatus == DifferenceReviewStatus.published &&
+        ((reviewer?.trim().isEmpty ?? true) || reviewDate == null)) {
+      throw const FormatException(
+        'Published differences require reviewer and valid review_date.',
+      );
+    }
+
     return ReadingDifference(
       id: json['id'] as String,
-      baseReading: QuranReading.values.firstWhere(
-        (r) => r.name == baseReadingName,
-        orElse: () => QuranReading.hafs,
-      ),
-      targetReading: QuranReading.values.firstWhere(
-        (r) => r.name == targetReadingName,
-        orElse: () => QuranReading.shubah,
-      ),
+      baseReading: _parseReading(baseReadingName),
+      targetReading: _parseReading(targetReadingName),
       baseSpan: ReadingWordSpan.fromJson(
         json['base_span'] as Map<String, dynamic>,
       ),
       targetSpan: ReadingWordSpan.fromJson(
         json['target_span'] as Map<String, dynamic>,
       ),
-      reviewStatus: DifferenceReviewStatus.values.firstWhere(
-        (s) => s.name == statusName,
-        orElse: () => DifferenceReviewStatus.candidate,
-      ),
+      reviewStatus: reviewStatus,
       isPerformanceOnly: json['is_performance_only'] as bool? ?? false,
       scholarlyNotes: json['scholarly_notes'] as String?,
-      reviewer: json['reviewer'] as String?,
-      reviewDate: json['review_date'] != null
-          ? DateTime.tryParse(json['review_date'] as String)
-          : null,
+      reviewer: reviewer,
+      reviewDate: reviewDate,
     );
   }
 
@@ -168,4 +171,18 @@ class ReadingDifference {
     if (reviewer != null) 'reviewer': reviewer,
     if (reviewDate != null) 'review_date': reviewDate!.toIso8601String(),
   };
+}
+
+QuranReading _parseReading(String name) {
+  for (final reading in QuranReading.values) {
+    if (reading.name == name) return reading;
+  }
+  throw FormatException('Unknown Quran reading: $name');
+}
+
+DifferenceReviewStatus _parseReviewStatus(String name) {
+  for (final status in DifferenceReviewStatus.values) {
+    if (status.name == name) return status;
+  }
+  throw FormatException('Unknown difference review status: $name');
 }

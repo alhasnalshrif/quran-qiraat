@@ -151,4 +151,70 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('keeps Mushaf line slots fixed while fitting long text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const shortWord = MushafLayoutWord(location: '1:1:1', text: 'الحمد');
+    final longWords = List.generate(
+      14,
+      (index) => MushafLayoutWord(
+        location: '1:2:${index + 1}',
+        text: 'وَٱلْمُسْتَغْفِرِينَ',
+      ),
+    );
+    final layout = MushafLayout(
+      editionId: 'test',
+      sourceCommit: 'test',
+      pages: [
+        MushafLayoutPage(
+          number: 1,
+          lines: [
+            const MushafLayoutLine(
+              number: 1,
+              type: MushafLayoutLineType.text,
+              text: 'الحمد',
+              words: [shortWord],
+            ),
+            MushafLayoutLine(
+              number: 2,
+              type: MushafLayoutLineType.text,
+              text: longWords.map((word) => word.text).join(' '),
+              words: longWords,
+            ),
+          ],
+        ),
+      ],
+    );
+    final repository = QuranRepository(
+      hafsByPage: const {},
+      shubah: const {},
+      qalun: const {},
+      hafsLayout: layout,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QuranTextPage(
+            page: 1,
+            reading: QuranReading.hafs,
+            comparisonReading: QuranReading.shubah,
+            quran: repository,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final shortLine = find.byKey(const ValueKey('mushaf-line-1-1'));
+    final longLine = find.byKey(const ValueKey('mushaf-line-1-2'));
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(shortLine).height, tester.getSize(longLine).height);
+    expect(tester.getSize(longLine).width, lessThanOrEqualTo(320));
+  });
 }

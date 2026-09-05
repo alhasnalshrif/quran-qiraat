@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-09-04",
+  "generated_at": "2026-09-05",
   "description": "بيان النسخ والروايات القرآنية المضمنة ومصادر المقارنة وحالة اعتمادها",
   "editions": [
     {
@@ -46,14 +46,14 @@
       "total_ayahs": 6214,
       "page_count": null,
       "font_family": "Qalun",
-      "notes": "نص رواية قالون عن نافع مخصص للمقارنة النصية فقط؛ يختلف في عد الآي المدني الأول (6214 آية) ولا يطابق صفحات حفص."
+      "notes": "نص رواية قالون عن نافع مخصص للمقارنة النصية فقط؛ يستخدم العد المدني في حزمة KFGQPC (6214 آية) ولا يطابق صفحات حفص."
     }
   ],
   "candidate_sources": [
     {
-      "id": "differences_taisir",
+      "id": "taisir_review_queue",
       "name_ar": "بيانات التيسير للداني (Corpus Coranicum)",
-      "file": "assets/differences_taisir.json",
+      "file": "assets/taisir_review_queue.json",
       "status": "candidate_unreviewed",
       "notes": "بيانات أولية مرشحة للاختبار والتطوير الداخلي فقط، وتتطلب مراجعة علمية متخصصة قبل النشر."
     }

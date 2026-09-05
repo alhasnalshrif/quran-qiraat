@@ -8,7 +8,9 @@ class ReadingWordRef {
     required this.ayah,
     required this.wordIndex,
     this.text,
-  });
+  }) : assert(surah > 0 && surah <= 114),
+       assert(ayah > 0),
+       assert(wordIndex > 0);
 
   final QuranReading reading;
   final int surah;
@@ -20,10 +22,7 @@ class ReadingWordRef {
 
   factory ReadingWordRef.fromJson(Map<String, dynamic> json) {
     final readingName = json['reading'] as String;
-    final reading = QuranReading.values.firstWhere(
-      (r) => r.name == readingName,
-      orElse: () => QuranReading.hafs,
-    );
+    final reading = _parseReading(readingName);
     return ReadingWordRef(
       reading: reading,
       surah: json['surah'] as int,
@@ -54,7 +53,10 @@ class ReadingWordSpan {
     required this.startWordIndex,
     required this.endWordIndex,
     required this.text,
-  }) : assert(
+  }) : assert(surah > 0 && surah <= 114),
+       assert(ayah > 0),
+       assert(startWordIndex > 0),
+       assert(
          endWordIndex >= startWordIndex,
          'endWordIndex must be >= startWordIndex',
        );
@@ -90,10 +92,7 @@ class ReadingWordSpan {
 
   factory ReadingWordSpan.fromJson(Map<String, dynamic> json) {
     final readingName = json['reading'] as String;
-    final reading = QuranReading.values.firstWhere(
-      (r) => r.name == readingName,
-      orElse: () => QuranReading.hafs,
-    );
+    final reading = _parseReading(readingName);
     return ReadingWordSpan(
       reading: reading,
       surah: json['surah'] as int,
@@ -112,4 +111,11 @@ class ReadingWordSpan {
     'end_word_index': endWordIndex,
     'text': text,
   };
+}
+
+QuranReading _parseReading(String name) {
+  for (final reading in QuranReading.values) {
+    if (reading.name == name) return reading;
+  }
+  throw FormatException('Unknown Quran reading: $name');
 }

@@ -32,7 +32,8 @@ dependencies:
     sdk: flutter
 
   iconsax_flutter: ^1.0.1
-  shared_preferences: ^2.5.3
+  shared_preferences: ^2.5.5
+  unorm_dart: ^0.3.2
 
 dev_dependencies:
   flutter_test:
@@ -56,7 +57,9 @@ flutter:
     - assets/quran_hafs.json
     - assets/quran_shubah.json
     - assets/quran_qalun.json
-    - assets/differences_taisir.json
+    - assets/taisir_review_queue.json
+    - assets/mappings/hafs_to_qalun.json
+    - assets/mappings/QIRAAT_AYAH_MAP_LICENSE.txt
     - assets/mushaf/layout/hafs_madani_604.json
 
   fonts:

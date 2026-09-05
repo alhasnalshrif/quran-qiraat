@@ -70,6 +70,47 @@ void main() {
       );
     });
 
+    test(
+      'bundled repository loads the pinned Hafs-to-Qalun ayah map',
+      () async {
+        final repository = await QuranRepository.load();
+
+        expect(repository.ayahCorrespondences.length, greaterThan(6000));
+        final proposal = repository.alignmentProposal(
+          sourceReading: QuranReading.hafs,
+          targetReading: QuranReading.qalun,
+          surah: 1,
+          ayah: 4,
+        );
+        expect(proposal, isNotNull);
+        expect(proposal!.pair.baseAyah, 4);
+        expect(proposal.pair.baseAyahEnd, 4);
+        expect(proposal.pair.targetAyah, 3);
+        expect(proposal.alignments, isNotEmpty);
+
+        final mergedOpening = repository.alignmentProposal(
+          sourceReading: QuranReading.hafs,
+          targetReading: QuranReading.qalun,
+          surah: 1,
+          ayah: 1,
+        );
+        expect(mergedOpening!.pair.baseAyahEnd, 2);
+        expect(mergedOpening.pair.targetAyah, 1);
+
+        final page13Candidates = repository.candidateDifferencesOnPage(
+          MarginRiwayah.shubah,
+          13,
+        );
+        expect(page13Candidates, isNotEmpty);
+        expect(
+          page13Candidates
+              .map(repository.proposedAlignmentForCandidate)
+              .whereType<ProposedWordAlignment>(),
+          isNotEmpty,
+        );
+      },
+    );
+
     test('CandidateDifferenceRecord models raw locator without asserted target span or performance classification', () {
       const candidate = CandidateDifferenceRecord(
         id: 'cand_1',
@@ -260,6 +301,16 @@ void main() {
           quran.highlightedWordsFor(MarginRiwayah.shubah, hafsAyah),
           isEmpty,
         );
+        expect(
+          quran.candidateEvidenceForWord(
+            baseReading: QuranReading.hafs,
+            comparisonReading: QuranReading.shubah,
+            surah: 1,
+            ayah: 4,
+            wordIndex: 1,
+          ),
+          candidateRecord,
+        );
       },
     );
 
@@ -312,6 +363,79 @@ void main() {
         expect(differences.first.difference, equals(publishedDiff));
       },
     );
+  });
+
+  group('Ayah correspondence safety', () {
+    const hafs = Ayah(
+      surah: 1,
+      number: 1,
+      page: 1,
+      text: 'بسم الله الرحمن الرحيم',
+      comparisonText: 'بسم الله الرحمن الرحيم',
+    );
+    const qalun = Ayah(
+      surah: 1,
+      number: 1,
+      page: 1,
+      text: 'الحمد لله رب العالمين',
+      comparisonText: 'الحمد لله رب العالمين',
+    );
+
+    test('never reuses a same-numbered Qalun ayah without correspondence', () {
+      final repository = QuranRepository(
+        hafsByPage: {
+          1: [hafs],
+        },
+        shubah: {},
+        qalun: {'1:1': qalun},
+      );
+
+      expect(repository.pageForReading(QuranReading.qalun, 1), isEmpty);
+      expect(
+        repository.ayahForReading(
+          QuranReading.qalun,
+          '1:1',
+          sourceReading: QuranReading.hafs,
+        ),
+        isNull,
+      );
+    });
+
+    test('uses an explicit reviewed ayah correspondence', () {
+      final repository = QuranRepository(
+        hafsByPage: {
+          1: [hafs],
+        },
+        shubah: {},
+        qalun: {'1:1': qalun},
+        ayahCorrespondences: [
+          AyahCorrespondence(
+            id: 'fatiha-opening',
+            base: [
+              ReadingAyahRef(reading: QuranReading.hafs, surah: 1, ayah: 1),
+            ],
+            target: [
+              ReadingAyahRef(reading: QuranReading.qalun, surah: 1, ayah: 1),
+            ],
+            source: 'test-reviewed-map',
+          ),
+        ],
+      );
+
+      expect(repository.pageForReading(QuranReading.qalun, 1), [qalun]);
+    });
+
+    test('rejects unknown reading identifiers instead of defaulting', () {
+      expect(
+        () => ReadingWordRef.fromJson({
+          'reading': 'unknown',
+          'surah': 1,
+          'ayah': 1,
+          'word_index': 1,
+        }),
+        throwsFormatException,
+      );
+    });
   });
 
   group('UI behavior and disclosures', () {
@@ -434,11 +558,10 @@ void main() {
         await tester.pumpAndSettle();
 
         // Must clearly state data is unreviewed candidate data and not published
-        expect(find.text('بيانات قيد المراجعة العلمية'), findsOneWidget);
-        expect(
-          find.text('البيانات المرشحة لا تُعرض كفروق منشورة'),
-          findsOneWidget,
-        );
+        expect(find.text('مقترحات آلية قيد المراجعة العلمية'), findsOneWidget);
+        expect(find.textContaining('حفص:'), findsOneWidget);
+        expect(find.textContaining('شعبة:'), findsOneWidget);
+        expect(find.textContaining('تصنيف آلي:'), findsOneWidget);
         expect(find.text('لا توجد فروق معتمدة في هذه الصفحة'), findsNothing);
       },
     );
@@ -471,7 +594,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('لا توجد فروق معتمدة في هذه الصفحة'), findsOneWidget);
-        expect(find.text('بيانات قيد المراجعة العلمية'), findsNothing);
+        expect(find.text('مقترحات آلية قيد المراجعة العلمية'), findsNothing);
       },
     );
 

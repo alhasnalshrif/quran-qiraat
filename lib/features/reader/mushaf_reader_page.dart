@@ -8,9 +8,12 @@ import 'package:quran_qiraat/domain/models/ayah.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/quran_repository.dart';
+import '../../domain/models/candidate_difference_record.dart';
+import '../../domain/models/reading_alignment.dart';
 import '../../domain/models/margin_difference.dart';
 import '../../domain/models/margin_riwayah.dart';
 import '../../domain/models/mushaf_layout.dart';
+import '../../domain/services/reading_alignment_engine.dart';
 import '../../domain/models/reading_difference.dart';
 
 const _green = Color(0xff4f9259);
@@ -675,13 +678,23 @@ class QuranTextPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    for (final ayah in verses)
-                      _TappableFlowAyah(
-                        ayah: ayah,
-                        primaryReading: reading,
-                        comparisonReading: comparisonReading,
-                        quran: quran,
-                      ),
+                    if (verses.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 28),
+                        child: Text(
+                          'لا توجد محاذاة آيات موثقة لهذه الصفحة في البيانات الحالية.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      )
+                    else
+                      for (final ayah in verses)
+                        _TappableFlowAyah(
+                          ayah: ayah,
+                          primaryReading: reading,
+                          comparisonReading: comparisonReading,
+                          quran: quran,
+                        ),
                     const SizedBox(height: 18),
                     Text(
                       '$page',
@@ -901,6 +914,9 @@ class _MushafLine extends StatelessWidget {
           words: line.words,
           fallbackText: text,
           maxWidth: constraints.maxWidth,
+          quran: quran,
+          primaryReading: primaryReading,
+          comparisonReading: comparisonReading,
           onWordTap: (word) => _showWordComparison(
             context,
             quran: quran,
@@ -920,56 +936,135 @@ class _TappableJustifiedLine extends StatelessWidget {
     required this.fallbackText,
     required this.maxWidth,
     required this.onWordTap,
+    required this.quran,
+    required this.primaryReading,
+    required this.comparisonReading,
   });
 
   final List<MushafLayoutWord> words;
   final String fallbackText;
   final double maxWidth;
   final ValueChanged<MushafLayoutWord> onWordTap;
+  final QuranRepository quran;
+  final QuranReading primaryReading;
+  final QuranReading comparisonReading;
 
-  static const _style = TextStyle(
+  static const _baseStyle = TextStyle(
     fontFamily: 'NotoSansArabic',
-    fontSize: 22,
-    height: 1.47,
+    height: 1,
     color: Color(0xff151515),
   );
+  static const double _minimumFontSize = 8;
+  static const double _maximumFontSize = 27;
+  static const double _lineHeight = 38;
 
   @override
   Widget build(BuildContext context) {
     if (words.isEmpty) {
-      return Text(
-        fallbackText,
-        textDirection: TextDirection.rtl,
-        style: _style,
+      final fontSize = _fittedFontSize(context: context, text: fallbackText);
+      return SizedBox(
+        height: _lineHeight,
+        child: Center(
+          child: Text(
+            fallbackText,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.clip,
+            textDirection: TextDirection.rtl,
+            style: _baseStyle.copyWith(fontSize: fontSize),
+          ),
+        ),
       );
     }
     final displayWords = words
         .map((word) => _withAyahMarker(word.text))
         .toList(growable: false);
     final plain = displayWords.join(' ');
+    final fontSize = _fittedFontSize(context: context, text: plain);
+    final fittedStyle = _baseStyle.copyWith(fontSize: fontSize);
     final painter = TextPainter(
-      text: TextSpan(text: plain, style: _style),
+      text: TextSpan(text: plain, style: fittedStyle),
       textDirection: TextDirection.rtl,
+      textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
     final gaps = math.max(1, words.length - 1);
-    final wordSpacing = ((maxWidth - painter.width) / gaps).clamp(-2.0, 10.0);
-    return Text.rich(
-      TextSpan(
-        children: [
-          for (var index = 0; index < words.length; index++)
-            TextSpan(
-              text:
-                  '${displayWords[index]}${index == words.length - 1 ? '' : ' '}',
-              recognizer: TapGestureRecognizer()
-                ..onTap = () => onWordTap(words[index]),
-            ),
-        ],
+    final wordSpacing = words.length < 2
+        ? 0.0
+        : ((maxWidth - painter.width) / gaps).clamp(0.0, 12.0);
+    return SizedBox(
+      height: _lineHeight,
+      width: maxWidth,
+      child: Center(
+        child: Text.rich(
+          TextSpan(
+            children: [
+              for (var index = 0; index < words.length; index++)
+                TextSpan(
+                  text:
+                      '${displayWords[index]}${index == words.length - 1 ? '' : ' '}',
+                  style: _candidateStyle(words[index]),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => onWordTap(words[index]),
+                ),
+            ],
+          ),
+          textDirection: TextDirection.rtl,
+          textAlign: words.length < 2 ? TextAlign.center : TextAlign.justify,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.clip,
+          textScaler: MediaQuery.textScalerOf(context),
+          style: fittedStyle.copyWith(wordSpacing: wordSpacing),
+        ),
       ),
-      textDirection: TextDirection.rtl,
-      textAlign: TextAlign.justify,
-      softWrap: false,
-      style: _style.copyWith(wordSpacing: wordSpacing),
+    );
+  }
+
+  double _fittedFontSize({
+    required BuildContext context,
+    required String text,
+  }) {
+    if (text.isEmpty || maxWidth <= 0) return _minimumFontSize;
+    final scaler = MediaQuery.textScalerOf(context);
+    var low = _minimumFontSize;
+    var high = _maximumFontSize;
+    for (var iteration = 0; iteration < 12; iteration++) {
+      final middle = (low + high) / 2;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: _baseStyle.copyWith(fontSize: middle),
+        ),
+        textDirection: TextDirection.rtl,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      if (painter.width <= maxWidth) {
+        low = middle;
+      } else {
+        high = middle;
+      }
+    }
+    return low;
+  }
+
+  TextStyle? _candidateStyle(MushafLayoutWord word) {
+    final parts = word.location.split(':').map(int.tryParse).toList();
+    if (parts.length != 3 || parts.any((part) => part == null)) return null;
+    final evidence = quran.candidateEvidenceForWord(
+      baseReading: primaryReading,
+      comparisonReading: comparisonReading,
+      surah: parts[0]!,
+      ayah: parts[1]!,
+      wordIndex: parts[2]!,
+    );
+    if (evidence == null) return null;
+    return const TextStyle(
+      backgroundColor: Color(0xfffff1c9),
+      decoration: TextDecoration.underline,
+      decorationColor: Color(0xff9a6b16),
+      decorationThickness: 2,
     );
   }
 }
@@ -1000,9 +1095,19 @@ Future<void> _showWordComparison(
     ayah: ayah,
     wordIndex: wordIndex,
   );
+  final candidateEvidence = difference == null
+      ? quran.candidateEvidenceForWord(
+          baseReading: primaryReading,
+          comparisonReading: comparisonReading,
+          surah: surah,
+          ayah: ayah,
+          wordIndex: wordIndex,
+        )
+      : null;
   final comparisonAyah = quran.ayahForReading(
     comparisonReading,
     '$surah:$ayah',
+    sourceReading: primaryReading,
   );
   await showModalBottomSheet<void>(
     context: context,
@@ -1013,6 +1118,7 @@ Future<void> _showWordComparison(
       comparisonReading: comparisonReading,
       word: word,
       difference: difference,
+      candidateEvidence: candidateEvidence,
       comparisonAyah: comparisonAyah,
     ),
   );
@@ -1024,6 +1130,7 @@ class _WordComparisonSheet extends StatelessWidget {
     required this.comparisonReading,
     required this.word,
     required this.difference,
+    required this.candidateEvidence,
     required this.comparisonAyah,
   });
 
@@ -1031,6 +1138,7 @@ class _WordComparisonSheet extends StatelessWidget {
   final QuranReading comparisonReading;
   final MushafLayoutWord word;
   final ReadingDifference? difference;
+  final CandidateDifferenceRecord? candidateEvidence;
   final Ayah? comparisonAyah;
 
   @override
@@ -1047,6 +1155,12 @@ class _WordComparisonSheet extends StatelessWidget {
         : (forward == true
               ? reviewedDifference.targetSpan.text
               : reviewedDifference.baseSpan.text);
+    final characterEdits = comparisonText == null
+        ? const <CharacterEdit>[]
+        : const ReadingAlignmentEngine().compareCharacters(
+            primaryText,
+            comparisonText,
+          );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
       child: Column(
@@ -1059,13 +1173,19 @@ class _WordComparisonSheet extends StatelessWidget {
             style: const TextStyle(color: _green, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
-          _ReadingWordTile(label: primaryReading.title, text: primaryText),
+          _ReadingWordTile(
+            label: primaryReading.title,
+            text: primaryText,
+            characterEdits: characterEdits,
+            showBaseEdits: true,
+          ),
           const SizedBox(height: 8),
           if (comparisonText != null)
             _ReadingWordTile(
               label: comparisonReading.title,
               text: comparisonText,
               accent: true,
+              characterEdits: characterEdits,
             )
           else ...[
             const Text(
@@ -1089,6 +1209,51 @@ class _WordComparisonSheet extends StatelessWidget {
                 ),
               ),
             ],
+            if (candidateEvidence != null) ...[
+              const SizedBox(height: 12),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xfff8f3e7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xffe6d8b9)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'دليل مرشح من التيسير — قيد المراجعة',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xff795d24),
+                        ),
+                      ),
+                      if (candidateEvidence!.referenceCairoArabic
+                          case final reference?)
+                        Text(
+                          'مرجع القاهرة: $reference',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      if (candidateEvidence!.variantTransliteration
+                          case final variant?)
+                        Text(
+                          'الوجه المنقول: $variant',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'لا يُعرض هذا كفرق معتمد أو محاذاة عربية نهائية قبل مراجعة متخصصة.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xff6b5832),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
           if (difference?.scholarlyNotes case final notes?)
             Padding(
@@ -1109,10 +1274,14 @@ class _ReadingWordTile extends StatelessWidget {
     required this.label,
     required this.text,
     this.accent = false,
+    this.characterEdits = const [],
+    this.showBaseEdits = false,
   });
   final String label;
   final String text;
   final bool accent;
+  final List<CharacterEdit> characterEdits;
+  final bool showBaseEdits;
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
@@ -1127,8 +1296,26 @@ class _ReadingWordTile extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(fontSize: 12, color: _green)),
           const SizedBox(height: 4),
-          Text(
-            text,
+          Text.rich(
+            characterEdits.isEmpty
+                ? TextSpan(text: text)
+                : TextSpan(
+                    children: [
+                      for (final edit in characterEdits)
+                        if ((showBaseEdits ? edit.baseText : edit.targetText)
+                            case final value?)
+                          TextSpan(
+                            text: value,
+                            style: edit.kind == CharacterEditKind.keep
+                                ? null
+                                : const TextStyle(
+                                    color: Color(0xffa23b2a),
+                                    backgroundColor: Color(0xffffe1d8),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                          ),
+                    ],
+                  ),
             textDirection: TextDirection.rtl,
             style: const TextStyle(fontFamily: 'NotoSansArabic', fontSize: 20),
           ),
@@ -1158,9 +1345,9 @@ class DifferencesDrawer extends StatelessWidget {
     final differences = baseReading == QuranReading.hafs && riwayah != null
         ? quran.differencesFor(riwayah, quran.page(page))
         : const <MarginDifference>[];
-    final hasCandidate = baseReading == QuranReading.hafs && riwayah != null
-        ? quran.hasCandidateDifferencesOnPage(riwayah, page)
-        : false;
+    final candidates = baseReading == QuranReading.hafs && riwayah != null
+        ? quran.candidateDifferencesOnPage(riwayah, page)
+        : const <CandidateDifferenceRecord>[];
 
     return Drawer(
       width: math.min(MediaQuery.sizeOf(context).width * .9, 420),
@@ -1203,22 +1390,43 @@ class DifferencesDrawer extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: differences.isNotEmpty
-                  ? ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
-                      itemCount: differences.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (_, index) => DifferenceCard(
-                        difference: differences[index],
-                        riwayah: riwayah!,
-                        quran: quran,
-                      ),
-                    )
-                  : hasCandidate
-                  ? const _CandidateUnreviewedNotice()
-                  : _NoDifferencesNotice(
+              child: differences.isEmpty && candidates.isEmpty
+                  ? _NoDifferencesNotice(
                       riwayah: riwayah,
                       comparisonReading: comparisonReading,
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+                      children: [
+                        if (differences.isNotEmpty) ...[
+                          const _DifferenceSectionTitle(
+                            title: 'فروق معتمدة',
+                            color: _green,
+                          ),
+                          for (final difference in differences) ...[
+                            DifferenceCard(
+                              difference: difference,
+                              riwayah: riwayah!,
+                              quran: quran,
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                        if (candidates.isNotEmpty) ...[
+                          const _CandidateUnreviewedNotice(),
+                          const SizedBox(height: 10),
+                          for (final candidate in candidates) ...[
+                            _CandidateDifferenceCard(
+                              candidate: candidate,
+                              alignment: quran.proposedAlignmentForCandidate(
+                                candidate,
+                              ),
+                              comparisonReading: comparisonReading,
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                      ],
                     ),
             ),
           ],
@@ -1228,72 +1436,143 @@ class DifferencesDrawer extends StatelessWidget {
   }
 }
 
+class _DifferenceSectionTitle extends StatelessWidget {
+  const _DifferenceSectionTitle({required this.title, required this.color});
+
+  final String title;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      title,
+      style: TextStyle(color: color, fontWeight: FontWeight.w700),
+    ),
+  );
+}
+
 class _CandidateUnreviewedNotice extends StatelessWidget {
   const _CandidateUnreviewedNotice();
 
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => const DecoratedBox(
+    decoration: BoxDecoration(
+      color: Color(0xfff7f3e8),
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+    ),
     child: Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.all(12),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xfff7f3e8),
-              shape: BoxShape.circle,
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Icon(
-                Iconsax.document_filter,
-                size: 32,
-                color: Color(0xff8c703e),
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
           Text(
-            'بيانات قيد المراجعة العلمية',
-            textAlign: TextAlign.center,
+            'مقترحات آلية قيد المراجعة العلمية',
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: Color(0xff222222),
+              color: Color(0xff795d24),
             ),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 4),
           Text(
-            'توجد مواضع مقارنة أولية في هذه الصفحة مستخرجة من مصادر مرشحة، وتتطلب مراجعة وتحقيقًا علميًا قبل النشر.',
-            textAlign: TextAlign.center,
+            'نعرض النص المقترح للمقارنة حتى يمكن مراجعته؛ ولا يُعد فرقًا منشورًا قبل الاعتماد المتخصص.',
             style: TextStyle(
-              fontSize: 13,
-              color: Color(0xff666666),
-              height: 1.5,
-            ),
-          ),
-          SizedBox(height: 12),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xffeee8da),
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Text(
-                'البيانات المرشحة لا تُعرض كفروق منشورة',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xff6b5832),
-                ),
-              ),
+              fontSize: 11.5,
+              color: Color(0xff6b5832),
+              height: 1.4,
             ),
           ),
         ],
       ),
     ),
   );
+}
+
+class _CandidateDifferenceCard extends StatelessWidget {
+  const _CandidateDifferenceCard({
+    required this.candidate,
+    required this.alignment,
+    required this.comparisonReading,
+  });
+
+  final CandidateDifferenceRecord candidate;
+  final ProposedWordAlignment? alignment;
+  final QuranReading comparisonReading;
+
+  @override
+  Widget build(BuildContext context) {
+    final proposed = alignment;
+    final hafsText =
+        proposed?.baseTokens.map((word) => word.text).join(' ') ??
+        candidate.referenceCairoArabic ??
+        '—';
+    final targetText =
+        proposed?.targetTokens.map((word) => word.text).join(' ') ??
+        candidate.variantTransliteration ??
+        '—';
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xffe6d8b9)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${candidate.surah}:${candidate.hafsAyah} — الكلمة ${candidate.rawWordIndex}',
+                  style: const TextStyle(
+                    color: Color(0xff795d24),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (proposed != null)
+                  Text(
+                    '${(proposed.score * 100).round()}٪',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xff746f65),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('حفص: $hafsText', style: const TextStyle(fontSize: 17)),
+            Text(
+              '${comparisonReading.shortTitle}: $targetText',
+              style: TextStyle(
+                fontFamily: comparisonReading.fontFamily,
+                fontSize: 17,
+                color: const Color(0xff8c3e32),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              proposed == null
+                  ? 'لم يكتمل اقتراح المحاذاة لهذا الموضع.'
+                  : 'تصنيف آلي: ${_differenceKindLabel(proposed.kind)}',
+              style: const TextStyle(fontSize: 11, color: Color(0xff746f65)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _differenceKindLabel(TextDifferenceKind kind) => switch (kind) {
+    TextDifferenceKind.identical => 'متطابق نصيًا',
+    TextDifferenceKind.diacriticsOnly => 'اختلاف ضبط',
+    TextDifferenceKind.letters => 'اختلاف حروف أو رسم',
+    TextDifferenceKind.insertion => 'زيادة في نص المقارنة',
+    TextDifferenceKind.deletion => 'حذف من نص المقارنة',
+  };
 }
 
 class _NoDifferencesNotice extends StatelessWidget {

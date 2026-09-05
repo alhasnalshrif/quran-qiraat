@@ -44,7 +44,8 @@ class MushafEdition {
     final readingName = json['reading'] as String;
     final reading = QuranReading.values.firstWhere(
       (r) => r.name == readingName,
-      orElse: () => QuranReading.hafs,
+      orElse: () =>
+          throw FormatException('Unknown Quran reading: $readingName'),
     );
 
     return MushafEdition(
@@ -160,7 +161,7 @@ class MushafManifest {
 
   static const bundledDefault = MushafManifest(
     schemaVersion: '1.0.0',
-    generatedAt: '2026-09-04',
+    generatedAt: '2026-09-05',
     description: 'البيان الافتراضي للمصاحف والروايات المضمنة',
     editions: [
       MushafEdition(
@@ -204,14 +205,14 @@ class MushafManifest {
         isTextComparisonCapable: true,
         totalAyahs: 6214,
         fontFamily: 'Qalun',
-        notes: 'نص رواية قالون عن نافع مخصص للمقارنة النصية فقط؛ يختلف في عد الآي المدني الأول (6214 آية).',
+        notes: 'نص رواية قالون عن نافع مخصص للمقارنة النصية فقط؛ يستخدم العد المدني في حزمة KFGQPC (6214 آية).',
       ),
     ],
     candidateSources: [
       CandidateSourceMetadata(
-        id: 'differences_taisir',
+        id: 'taisir_review_queue',
         nameAr: 'بيانات التيسير للداني (Corpus Coranicum)',
-        file: 'assets/differences_taisir.json',
+        file: 'assets/taisir_review_queue.json',
         status: 'candidate_unreviewed',
         notes: 'بيانات أولية مرشحة للاختبار والتطوير الداخلي فقط.',
       ),

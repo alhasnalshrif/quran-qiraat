@@ -17,6 +17,9 @@ class CandidateDifferenceRecord {
     required this.rawWordIndex,
     this.provenance = '',
     this.notes = '',
+    this.referenceTransliteration,
+    this.referenceCairoArabic,
+    this.variantTransliteration,
   });
 
   final String id;
@@ -28,6 +31,12 @@ class CandidateDifferenceRecord {
   final int rawWordIndex;
   final String provenance;
   final String notes;
+
+  /// Source evidence retained for scholarly review only; this is not a target
+  /// Arabic-word alignment and must never be presented as an approved reading.
+  final String? referenceTransliteration;
+  final String? referenceCairoArabic;
+  final String? variantTransliteration;
 
   String get hafsAyahKey => '$surah:$hafsAyah';
 
@@ -45,6 +54,9 @@ class CandidateDifferenceRecord {
         rawWordIndex: json['raw_word_index'] as int,
         provenance: json['provenance'] as String? ?? '',
         notes: json['notes'] as String? ?? '',
+        referenceTransliteration: json['reference_transliteration'] as String?,
+        referenceCairoArabic: json['reference_cairo_arabic'] as String?,
+        variantTransliteration: json['variant_transliteration'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -57,5 +69,11 @@ class CandidateDifferenceRecord {
     'raw_word_index': rawWordIndex,
     'provenance': provenance,
     'notes': notes,
+    if (referenceTransliteration != null)
+      'reference_transliteration': referenceTransliteration,
+    if (referenceCairoArabic != null)
+      'reference_cairo_arabic': referenceCairoArabic,
+    if (variantTransliteration != null)
+      'variant_transliteration': variantTransliteration,
   };
 }
