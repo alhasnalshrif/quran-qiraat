@@ -99,16 +99,10 @@ void main() {
         expect(mergedOpening!.pair.baseAyahEnd, 2);
         expect(mergedOpening.pair.targetAyah, 1);
 
-        final page13Candidates = repository.candidateDifferencesOnPage(
-          MarginRiwayah.shubah,
-          13,
-        );
-        expect(page13Candidates, isNotEmpty);
+        expect(repository.candidateDifferences, isEmpty);
         expect(
-          page13Candidates
-              .map(repository.proposedAlignmentForCandidate)
-              .whereType<ProposedWordAlignment>(),
-          isNotEmpty,
+          repository.candidateDifferencesOnPage(MarginRiwayah.shubah, 13),
+          isEmpty,
         );
       },
     );

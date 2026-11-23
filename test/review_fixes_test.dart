@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -124,6 +125,36 @@ void main() {
   });
 
   test('candidate cards belong to the actual page of their source word', () {
+    expect(bundled.candidateDifferences, isEmpty);
+    final file = File('assets/taisir_review_queue.json');
+    if (!file.existsSync()) return;
+    final wordPageIndex = <String, int>{};
+    for (final page in bundled.hafsLayout!.pages) {
+      for (final line in page.lines) {
+        for (final word in line.words) {
+          wordPageIndex[word.location] = page.number;
+        }
+      }
+    }
+    final parsedCandidates = QuranRepository.parseTaisirReviewQueue(
+      file.readAsStringSync(),
+      hafsMap: bundled.hafsByKey,
+      wordPageIndex: wordPageIndex,
+    );
+    final repoWithCandidates = QuranRepository(
+      manifest: bundled.manifest,
+      hafsByPage: bundled.hafsByPage,
+      shubah: bundled.shubah,
+      qalun: bundled.qalun,
+      publishedDifferences: bundled.publishedDifferences,
+      candidateDifferences: parsedCandidates,
+      ayahCorrespondences: bundled.ayahCorrespondences,
+      hafsByKey: bundled.hafsByKey,
+      ayahCounterpartIndex: bundled.ayahCounterpartIndex,
+      ayahCorrespondenceIndex: bundled.ayahCorrespondenceIndex,
+      qiraatVariants: bundled.qiraatVariants,
+      hafsLayout: bundled.hafsLayout,
+    );
     final locations = <String, Set<int>>{};
     for (final page in bundled.hafsLayout!.pages) {
       for (final line in page.lines) {
@@ -135,14 +166,14 @@ void main() {
     for (final reading in MarginRiwayah.values) {
       final displayed = <String, Set<int>>{};
       for (var page = 1; page <= 604; page++) {
-        for (final candidate in bundled.candidateDifferencesOnPage(
+        for (final candidate in repoWithCandidates.candidateDifferencesOnPage(
           reading,
           page,
         )) {
           (displayed[candidate.id] ??= {}).add(page);
         }
       }
-      for (final candidate in bundled.candidateDifferences.where(
+      for (final candidate in repoWithCandidates.candidateDifferences.where(
         (c) => c.sourceReading == reading,
       )) {
         expect(
@@ -154,13 +185,13 @@ void main() {
       }
     }
     expect(
-      bundled
+      repoWithCandidates
           .candidateDifferencesOnPage(MarginRiwayah.qalun, 584)
           .any((c) => c.id == 'taisir_qalun_79_16_6'),
       isTrue,
     );
     expect(
-      bundled
+      repoWithCandidates
           .candidateDifferencesOnPage(MarginRiwayah.qalun, 583)
           .any((c) => c.id == 'taisir_qalun_79_16_6'),
       isFalse,

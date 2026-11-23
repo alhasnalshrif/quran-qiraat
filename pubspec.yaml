@@ -66,7 +66,6 @@ flutter:
     - assets/quran_hafs.json
     - assets/quran_shubah.json
     - assets/quran_qalun.json
-    - assets/taisir_review_queue.json
     - assets/mappings/hafs_to_qalun.json
     - assets/mappings/QIRAAT_AYAH_MAP_LICENSE.txt
     - assets/qiraat/variants.json

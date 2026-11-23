@@ -508,7 +508,6 @@ class QuranRepository {
       rootBundle.loadString('assets/quran_shubah.json'),
       rootBundle.loadString('assets/quran_qalun.json'),
       MushafLayoutRepository.loadHafsMadani604(),
-      rootBundle.loadString('assets/taisir_review_queue.json'),
       rootBundle.loadString('assets/mappings/hafs_to_qalun.json'),
       rootBundle.loadString('assets/published_differences.json'),
       rootBundle.loadString('assets/qiraat/variants.json'),
@@ -542,13 +541,7 @@ class QuranRepository {
       ];
     }
 
-    // The review queue holds source evidence but never asserts target Arabic spans.
-    final candidateDifferences = _parseTaisirReviewQueue(
-      files[5] as String,
-      hafsMap: hafsMap,
-      wordPageIndex: wordPageIndex,
-    );
-    final ayahCorrespondences = _parseHafsToQalunMap(files[6] as String);
+    final ayahCorrespondences = _parseHafsToQalunMap(files[5] as String);
     final counterpartIndex = <String, List<ReadingAyahRef>>{};
     final correspondenceIndex = <String, AyahCorrespondence>{};
     for (final correspondence in ayahCorrespondences) {
@@ -567,7 +560,7 @@ class QuranRepository {
     }
 
     final published = parsePublishedDifferences(
-      files[7] as String,
+      files[6] as String,
       hafsLayout: layout,
       ayahs: {
         QuranReading.hafs: hafsMap,
@@ -581,12 +574,12 @@ class QuranRepository {
       shubah: shubahMap,
       qalun: qalunMap,
       publishedDifferences: published,
-      candidateDifferences: candidateDifferences,
+      candidateDifferences: const [],
       ayahCorrespondences: ayahCorrespondences,
       hafsByKey: hafsMap,
       ayahCounterpartIndex: counterpartIndex,
       ayahCorrespondenceIndex: correspondenceIndex,
-      qiraatVariants: QiraatVariants.parse(files[8] as String),
+      qiraatVariants: QiraatVariants.parse(files[7] as String),
       hafsLayout: layout,
     );
   }
@@ -751,7 +744,7 @@ class QuranRepository {
       '${source.reading.name}:${source.surah}:${source.ayah}'
       '>${targetReading.name}';
 
-  static List<CandidateDifferenceRecord> _parseTaisirReviewQueue(
+  static List<CandidateDifferenceRecord> parseTaisirReviewQueue(
     String source, {
     required Map<String, Ayah> hafsMap,
     required Map<String, int> wordPageIndex,
