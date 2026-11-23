@@ -11,7 +11,7 @@
 | `onesignal_flutter` | الإشعارات البعيدة (D18) |
 | `flutter_local_notifications` | تذكير الورد اليومي، يُضاف مع مهمة L-02 لا قبلها |
 | `crypto` | sha256 |
-| `cryptography` | التحقق من توقيع Ed25519 (يعمل على كل المنصات بما فيها الويب) |
+| `cryptography` | التحقق من توقيع Ed25519 (Dart خالص، يعمل على iOS وAndroid) |
 | `path_provider` | مجلد دعم التطبيق لحفظ الحزم |
 | `connectivity_plus` | خيار «Wi-Fi فقط» |
 | `package_info_plus` | رقم البناء الحالي |
@@ -54,7 +54,7 @@ abstract interface class QuranDataSource {
 }
 ```
 
-- `BundledDataSource`: يقرأ من `rootBundle` حسب `bundledPath` في جدول العقد §1.1. يُستخدم في الاختبارات وفي الويب (D9).
+- `BundledDataSource`: يقرأ من `rootBundle` حسب `bundledPath` في جدول العقد §1.1. يُستخدم في الاختبارات، وكاحتياطي لأي حزمة غير مفعّلة.
 - `PackedDataSource`: يقرأ من القرص للحزم المفعّلة، ويرجع لـ `BundledDataSource` لأي حزمة غير مفعّلة.
 - **التغيير في الكود الحالي** (مهمة A-04): كل `rootBundle.loadString('assets/…')` في `QuranRepository.load()` و`MushafLayoutRepository` و`QuranNavigationIndex.hizbs()` يُستبدل بـ `dataSource.loadString(packId, path)`. `QuranRepository.load({QuranDataSource? source})` يأخذ المصدر، وافتراضيه `BundledDataSource` حتى لا تنكسر الاختبارات.
 
@@ -103,7 +103,7 @@ abstract interface class QuranDataSource {
 
 | الشيت | متى | المحتوى | الإغلاق |
 |---|---|---|---|
-| **التحديث الإجباري** | `build < app.minSupportedBuild` | العنوان «يلزم تحديث التطبيق»، رسالة `app.message`، زر «فتح المتجر» (`storeUrl`)؛ على الويب «إعادة التحميل» | `isDismissible: false`، `enableDrag: false`، وزر الرجوع في Android لا يغلقه (`PopScope(canPop: false)`). يعود عند كل فتح حتى يُحدَّث |
+| **التحديث الإجباري** | `build < app.minSupportedBuild` | العنوان «يلزم تحديث التطبيق»، رسالة `app.message`، زر «فتح المتجر» (`storeUrl`) | `isDismissible: false`، `enableDrag: false`، وزر الرجوع في Android لا يغلقه (`PopScope(canPop: false)`). يعود عند كل فتح حتى يُحدَّث |
 | **نسخة جديدة اختيارية** | `build < app.latestBuild` | رسالة `app.message`، «تحديث» و«لاحقًا» | قابل للإغلاق. لا يعود لنفس `latestBuild` (يُحفظ `dismissed_latest_build`) |
 | **تحديث بيانات جاهز** | اكتمل تنزيل حزمة أو أكثر (03 §5 خطوة 10) | اسم كل حزمة وملاحظاتها `notes.ar`، «تطبيق الآن» و«عند الفتح التالي» | قابل للإغلاق؛ الإغلاق = عند الفتح التالي (D8) |
 | **إعلان** | إعلان فعّال لم يُغلق | العنوان والنص وزر الرابط إن وُجد | قابل للإغلاق، ويُحفظ معرّفه في `dismissed_announcements` فلا يتكرر. يحترم `features.announcements` |
@@ -120,11 +120,9 @@ abstract interface class QuranDataSource {
 4. رقم النسخة ورقم البناء. الضغط عليه 7 مرات يُظهر اختيار القناة (`stable`/`beta`)، يُحفظ في `SharedPreferences` (`update_channel`).
 5. «الرجوع للبيانات الأصلية»: يعطّل كل الحزم المنزّلة ويعود للمضمّن.
 
-## 8. الويب (D9)
+## 8. المنصات (D9)
 
-- في المرحلة 1: الويب يستخدم `BundledDataSource` فقط، ويطلب البيان لسياسة النسخة والإعلانات والإعدادات.
-- تحديث حزم الويب يتم بنشر نسخة ويب جديدة (`tool/build_web.mjs`) كما اليوم.
-- مهمة لاحقة (A-10): حفظ الحزم في Cache Storage تحت مفتاح الرابط، بنفس التحقق.
+iOS وAndroid فقط. لا ويب ولا سطح مكتب: لا يُكتب كود خاص بهما (`kIsWeb` وما شابه) ولا يُضاف مجلد منصة لهما.
 
 ## 9. الاختبارات
 
@@ -148,7 +146,7 @@ abstract interface class QuranDataSource {
 |---|---|---|
 | `dioProvider` | `Provider<Dio>` | نسخة Dio الوحيدة (§11) |
 | `packStoreProvider` | `Provider<PackStore>` | |
-| `dataSourceProvider` | `Provider<QuranDataSource>` | `PackedDataSource` على الأجهزة، `BundledDataSource` على الويب |
+| `dataSourceProvider` | `Provider<QuranDataSource>` | `PackedDataSource` (و`BundledDataSource` في الاختبارات بـ override) |
 | `manifestProvider` | `AsyncNotifierProvider<ManifestNotifier, Manifest?>` | آخر بيان صالح، و`check({manual})` |
 | `remoteConfigProvider` | `Provider<RemoteConfig>` | من البيان أو الافتراضيات |
 | `appPolicyProvider` | `Provider<AppPolicy>` | إجباري/اختياري/لا شيء |
@@ -184,7 +182,5 @@ abstract interface class QuranDataSource {
 | `quranqiraat://announcement/<id>` | شيت الإعلان |
 
 رابط غير معروف أو غير صالح يُتجاهل ويفتح التطبيق عاديًا.
-
-**الويب:** OneSignal Web SDK غير مستخدم في المرحلة الأولى؛ الويب بلا إشعارات.
 
 **الإعداد المطلوب منك (N-01):** حساب OneSignal، تطبيق فيه، مفتاح APNs (.p8) من حساب Apple Developer، وملف Firebase (FCM) لأندرويد. التطبيق يحتاج Capability «Push Notifications» و«Background Modes: Remote notifications» في iOS، وNotification Service Extension لصور الإشعارات.

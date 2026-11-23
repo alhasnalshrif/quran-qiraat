@@ -64,7 +64,7 @@ If-None-Match: "<etag من آخر رد>"
 
 | المعامل | القيم | ملاحظات |
 |---|---|---|
-| `platform` | `ios`، `android`، `web`، `macos`، `windows`، `linux` | إلزامي |
+| `platform` | `ios`، `android` (D9) | إلزامي |
 | `build` | عدد صحيح ≥ 1 | إلزامي |
 | `channel` | `stable`، `beta`، `internal` | افتراضي `stable` |
 | `protocol` | `1` | إلزامي. السيرفر يرد 400 لأي رقم لا يدعمه |

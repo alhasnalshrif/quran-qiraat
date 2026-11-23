@@ -118,7 +118,7 @@ quran/
 ### `app_platforms`
 | العمود | النوع |
 |---|---|
-| `platform` | enum (PK): ios, android, web, macos, windows, linux |
+| `platform` | enum (PK): ios, android (D9) |
 | `latest_build`، `min_supported_build` | integer |
 | `store_url` | text |
 | `message_ar` | text |
@@ -175,7 +175,7 @@ quran/
 - `GET /healthz` → 200 `{ "ok": true }` بعد فحص الاتصال بقاعدة البيانات.
 - **Rate limit**: 60 طلبًا في الدقيقة لكل IP على `/v1`. يُحسب في الذاكرة (سيرفر واحد حسب D5).
 - **السجلات**: لا يُحفظ IP كاملًا. يُسجَّل hash يومي متغير للـ IP لأغراض الـrate limit فقط، ويُحذف بعد 7 أيام.
-- **CORS** على `/v1`: `*` للقراءة (للويب).
+- **CORS**: لا يُفعَّل على `/v1` (العملاء تطبيقات جوال فقط، D9). اللوحة على نفس النطاق.
 
 ## 5. طرق اللوحة `/admin/api`
 
@@ -245,7 +245,7 @@ node tool/publish_pack.mjs --pack qiraat-farsh --server https://api.example.com 
 | المستوى | الأداة | ما يُغطّى |
 |---|---|---|
 | contracts | Vitest | كل مدقق صيغة بحالات صحيحة وخاطئة؛ تطابق مخطط البيان مع مثال العقد |
-| server | Vitest + PostgreSQL حقيقي (خدمة في CI) + MinIO + OneSignal وهمي (خادم HTTP محلي يسجل الطلبات) | بناء البيان لكل حالة في العقد §2 (ترشيح بـ build، السحب، القنوات، انتهاء الصلاحية)، التوقيع والتحقق منه، كل طريق في §5 مع الصلاحيات وCSRF |
+| server | Vitest + PostgreSQL حقيقي (من `deploy/docker-compose.dev.yml` محليًا) + MinIO + OneSignal وهمي (خادم HTTP محلي يسجل الطلبات) | بناء البيان لكل حالة في العقد §2 (ترشيح بـ build، السحب، القنوات، انتهاء الصلاحية)، التوقيع والتحقق منه، كل طريق في §5 مع الصلاحيات وCSRF |
 | admin | Vitest + Testing Library | النماذج الأساسية، وتدفق رفع إصدار |
 | تكامل | سكربت | سيرفر محلي + نشر حزمة + تطبيق Flutter في اختبار يقرأ البيان وينزّل ويتحقق (مهمة A-09) |
 
@@ -253,7 +253,7 @@ node tool/publish_pack.mjs --pack qiraat-farsh --server https://api.example.com 
 
 - `deploy/docker-compose.yml`: `server` (صورة من `server/Dockerfile` فيها اللوحة المبنية)، `postgres:16` بمجلد بيانات دائم، `caddy` لـ HTTPS تلقائي.
 - النسخ الاحتياطي: `pg_dump` يومي إلى نفس R2 في مجلد `backups/`، والاحتفاظ 30 يومًا.
-- CI (`.github/workflows/server.yml`): lint، typecheck، اختبارات contracts والسيرفر واللوحة، بناء الصورة. النشر عند tag `server-v*` فقط.
+- لا CI (D21): `tool/verify.sh` يشغّل lint وtypecheck واختبارات contracts والسيرفر واللوحة محليًا قبل الـpush. النشر يدوي على الـVPS: `git pull` ثم `docker compose up -d --build`، ولا يُنشر إلا بعد مرور `tool/verify.sh`.
 - المراقبة: `/healthz` يُفحص من خدمة خارجية مجانية كل 5 دقائق.
 
 ## 10. ما ليس في هذه المرحلة

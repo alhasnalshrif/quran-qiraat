@@ -6,35 +6,17 @@
 
 ## التشغيل والتحقق
 
-بيئة CI مثبتة على Flutter 3.47.5 مع Dart 3.13.4. تحتاج Node.js 22 أو أحدث لأدوات الويب والتحقق.
+المنصات: iOS وAndroid. النسخ المعتمدة: Flutter 3.47.5 مع Dart 3.13.4، وNode.js 22 لأداة التحقق من التخطيط. لا CI: شغّل التحقق محليًا قبل كل push.
 
 ```sh
 flutter pub get
 flutter run
 flutter analyze --no-pub
 flutter test --no-pub
-node --test test/web_offline_test.mjs
 node tool/import_mushaf_layout.mjs --check
 ```
 
 اختبارات الصور تستعمل خطوط الحزمة وإعدادات منصة Flutter Test الافتراضية. لا تستخدم تحديث الصور المرجعية لإخفاء فشل غير مفهوم؛ افحص صور الفرق أولًا.
-
-## بناء الويب دون إنترنت
-
-```sh
-node tool/build_web.mjs --no-pub
-python3 -m http.server 8766 --directory build/web
-```
-
-أداة البناء تضمّن محرك الرسم محليًا وتولّد قائمة الملفات ورقم إصدار الـService Worker. انشر محتويات `build/web` على HTTPS؛ localhost صالح للاختبار. بناء `flutter build web` وحده لا يولّد قائمة التخزين المطلوبة للعمل دون شبكة.
-
-للنشر تحت مسار فرعي:
-
-```sh
-node tool/build_web.mjs --no-pub --base-href=/quran/
-```
-
-افتح التطبيق أولًا مع الشبكة وانتظر اكتمال تثبيت Service Worker، ثم افصل الشبكة وأعد فتحه. أول زيارة إلى موقع لم يُحمّل سابقًا تحتاج اتصالًا. إذا فشل تنزيل الحزمة، يبقى الإصدار المحلي السابق حتى ينجح التحديث. تشمل الحزمة المحلية النصوص والخطوط وCanvasKit، ولا تعتمد على CDN لمحرك الرسم.
 
 ## إصدار Android
 
