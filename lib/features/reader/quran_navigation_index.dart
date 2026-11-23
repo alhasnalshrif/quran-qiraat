@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unicode;
 
 import '../../data/quran_repository.dart';
+import '../../updates/data_source.dart';
 import '../../domain/models/ayah.dart';
 import '../../domain/models/margin_riwayah.dart';
 import 'reader_library_store.dart';
@@ -145,12 +145,15 @@ class QuranNavigationIndex {
     ];
   }
 
-  Future<List<Ayah>> hizbs() async {
+  Future<List<Ayah>> hizbs({
+    QuranDataSource source = const BundledDataSource(),
+  }) async {
     final raw = jsonDecode(
       // Not cached: the reader loads this at start-up, and a cached future
       // must not outlive the zone that created it.
-      await rootBundle.loadString(
-        'assets/navigation/hafs_hizbs.json',
+      await source.loadString(
+        'navigation-hizbs',
+        'hafs_hizbs.json',
         cache: false,
       ),
     ) as Map<String, dynamic>;

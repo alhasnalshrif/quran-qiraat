@@ -1,7 +1,8 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unicode;
+
+import '../updates/data_source.dart';
 
 import '../domain/models/ayah.dart';
 import '../domain/models/ayah_correspondence.dart';
@@ -501,16 +502,18 @@ class QuranRepository {
   // Loaders
   // ---------------------------------------------------------------------------
 
-  static Future<QuranRepository> load() async {
+  static Future<QuranRepository> load({
+    QuranDataSource source = const BundledDataSource(),
+  }) async {
     final files = await Future.wait([
-      rootBundle.loadString('assets/editions_manifest.json'),
-      rootBundle.loadString('assets/quran_hafs.json'),
-      rootBundle.loadString('assets/quran_shubah.json'),
-      rootBundle.loadString('assets/quran_qalun.json'),
-      MushafLayoutRepository.loadHafsMadani604(),
-      rootBundle.loadString('assets/mappings/hafs_to_qalun.json'),
-      rootBundle.loadString('assets/published_differences.json'),
-      rootBundle.loadString('assets/qiraat/variants.json'),
+      source.loadString('editions-manifest', 'editions_manifest.json'),
+      source.loadString('hafs-text', 'quran_hafs.json'),
+      source.loadString('riwayah-shubah-text', 'quran_shubah.json'),
+      source.loadString('riwayah-qalun-text', 'quran_qalun.json'),
+      MushafLayoutRepository.loadHafsMadani604(source: source),
+      source.loadString('mapping-hafs-qalun', 'hafs_to_qalun.json'),
+      source.loadString('published-differences', 'published_differences.json'),
+      source.loadString('qiraat-farsh', 'variants.json'),
     ]);
 
     final manifest = MushafManifest.fromJson(
