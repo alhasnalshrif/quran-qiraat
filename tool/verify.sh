@@ -17,9 +17,10 @@ echo "=== 4. Check Qiraat variants ==="
 python3 tool/import_qiraat_variants.py --check
 
 if [ -f "pnpm-workspace.yaml" ]; then
-  echo "=== 5. Node workspace lint, typecheck and tests ==="
+  echo "=== 5. Node workspace lint, typecheck, build and tests ==="
   pnpm -r lint
   pnpm -r typecheck
+  pnpm -r build
   pnpm -r test
 fi
 

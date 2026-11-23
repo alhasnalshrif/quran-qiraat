@@ -61,3 +61,7 @@ node_modules/
 /admin/dist/
 /server/dist/
 /packages/*/dist/
+
+# Deployment secrets and state (S-12)
+/deploy/.env
+/deploy/backup-state/

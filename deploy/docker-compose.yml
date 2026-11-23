@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-quran}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-quran}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-quran} -d ${POSTGRES_DB:-quran}']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../server/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-quran}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-quran}
+      PORT: 8787
+    expose:
+      - '8787'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Daily pg_dump into the same R2 bucket, keeping 30 days (02 §9).
+  backup:
+    build:
+      context: .
+      dockerfile: backup.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../server/.env
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-quran}
+      PGDATABASE: ${POSTGRES_DB:-quran}
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,19 @@
+{
+	# Set to your real domain; Caddy provisions HTTPS automatically (S-12).
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Security headers for the dashboard (02 §6).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	reverse_proxy server:8787
+}

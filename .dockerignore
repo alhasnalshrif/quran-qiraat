@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+.dart_tool
+build
+ios
+android
+lib
+test
+assets
+*.md
+server/.env
+deploy
+docs
