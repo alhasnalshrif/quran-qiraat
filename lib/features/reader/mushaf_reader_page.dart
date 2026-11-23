@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:quran_qiraat/domain/models/ayah.dart';
@@ -19,6 +20,7 @@ import '../../domain/services/reading_alignment_engine.dart';
 import '../../domain/models/reading_difference.dart';
 import 'page_input.dart';
 import 'reader_library.dart';
+import 'reader_state.dart';
 import 'reading_text_comparison_page.dart';
 import 'hafs_ayah_audio.dart';
 import 'riwayah_picker.dart';
@@ -66,7 +68,7 @@ Color _readingColor(BuildContext context, Color day, Color night) =>
 
 enum DifferencesPlacement { hidden, side, bottom, margin }
 
-class MushafReaderPage extends StatefulWidget {
+class MushafReaderPage extends ConsumerStatefulWidget {
   const MushafReaderPage({
     super.key,
     required this.preferences,
@@ -79,10 +81,10 @@ class MushafReaderPage extends StatefulWidget {
   final ValueChanged<ThemeMode>? onAppearanceChanged;
 
   @override
-  State<MushafReaderPage> createState() => _MushafReaderPageState();
+  ConsumerState<MushafReaderPage> createState() => _MushafReaderPageState();
 }
 
-class _MushafReaderPageState extends State<MushafReaderPage> {
+class _MushafReaderPageState extends ConsumerState<MushafReaderPage> {
   static const _pageCount = 604;
   static const _lastPageKey = 'last_page';
   static const _primaryReadingKey = 'primary_reading';
@@ -206,13 +208,14 @@ class _MushafReaderPageState extends State<MushafReaderPage> {
 
   void _setKeepAwake(bool value) {
     setState(() => _keepAwake = value);
-    widget.preferences.setBool(_keepAwakeKey, value);
+    // Persisted state goes through the notifier (A-12).
+    ref.read(readerStateProvider.notifier).setKeepAwake(value);
     _applyWakelock(value);
   }
 
   void _setFlowFontSize(double value) {
     setState(() => _flowFontSize = value);
-    widget.preferences.setDouble(_flowFontSizeKey, value);
+    ref.read(readerStateProvider.notifier).setFlowFontSize(value);
   }
 
   @override
@@ -228,7 +231,7 @@ class _MushafReaderPageState extends State<MushafReaderPage> {
       _page = index + 1;
       if (_selectedLocation?.page != _page) _selectedLocation = null;
     });
-    widget.preferences.setInt(_lastPageKey, _page);
+    ref.read(readerStateProvider.notifier).setPage(_page);
   }
 
   Future<void> _remember(ReaderLocation location) async {
@@ -309,6 +312,7 @@ class _MushafReaderPageState extends State<MushafReaderPage> {
 
   void _setAppearance(ThemeMode mode) {
     setState(() => _appearance = mode);
+    ref.read(readerStateProvider.notifier).setAppearance(mode);
     widget.onAppearanceChanged?.call(mode);
     widget.preferences.setString(readerAppearancePreference, mode.name);
   }
