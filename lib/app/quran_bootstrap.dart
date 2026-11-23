@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_repository.dart';
+import '../updates/providers.dart';
 import 'quran_qiraat_app.dart';
 import 'quran_theme.dart';
 
@@ -37,9 +39,15 @@ class _QuranBootstrapState extends State<QuranBootstrap> {
     builder: (context, snapshot) {
       final session = snapshot.data;
       if (session != null) {
-        return QuranQiraatApp(
-          preferences: session.preferences,
-          quran: session.quran,
+        return ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(session.preferences),
+            quranRepositoryProvider.overrideWithValue(session.quran),
+          ],
+          child: QuranQiraatApp(
+            preferences: session.preferences,
+            quran: session.quran,
+          ),
         );
       }
       return MaterialApp(
