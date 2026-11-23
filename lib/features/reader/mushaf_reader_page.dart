@@ -398,10 +398,11 @@ class _MushafReaderPageState extends ConsumerState<MushafReaderPage> {
       return;
     }
     setState(() => _differencesPlacement = placement);
-    widget.preferences.setString(_differencesPlacementKey, placement.name);
+    ref.read(readerStateProvider.notifier).setPlacement(placement);
   }
 
   void _setMarginRiwayah(String riwayah) {
+    ref.read(readerStateProvider.notifier).setMarginRiwayah(riwayah);
     final reading = QuranReadingData.fromVariantSlug(riwayah);
     setState(() {
       _primaryReading = QuranReading.hafs;
