@@ -1,0 +1,48 @@
+{
+  "protocol": 1,
+  "issuedAt": "2026-11-23T10:00:00Z",
+  "expiresAt": "2026-11-30T10:00:00Z",
+  "channel": "stable",
+  "app": {
+    "latestBuild": 9,
+    "minSupportedBuild": 5,
+    "storeUrl": "https://apps.apple.com/app/id000000000",
+    "message": { "ar": "نسخة جديدة فيها إصلاحات لعرض الصفحات." }
+  },
+  "packs": [
+    {
+      "packId": "qiraat-farsh",
+      "version": 2,
+      "format": "qiraat-variants@1",
+      "source": { "name": "Quran Tajweed Engine", "revision": "edd7afc0551d4bbbb14416a661534f595c97bb67" },
+      "notes": { "ar": "تصحيح مواضع فروق في سورة البقرة." },
+      "files": [
+        {
+          "path": "variants.json",
+          "url": "https://cdn.example.com/packs/qiraat-farsh/2/variants.json",
+          "sha256": "9f2c5b8e1a7d4f0c3b6e9a2d5f8c1b4e7a0d3f6c9b2e5a8d1f4c7b0e3a6d9f2c",
+          "size": 426472
+        },
+        {
+          "path": "LICENSE-QuranTajweedEngine.txt",
+          "url": "https://cdn.example.com/packs/qiraat-farsh/2/LICENSE-QuranTajweedEngine.txt",
+          "sha256": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f809",
+          "size": 1080
+        }
+      ]
+    }
+  ],
+  "revoked": [{ "packId": "qiraat-farsh", "version": 1 }],
+  "config": { "updates.checkIntervalHours": 6 },
+  "announcements": [
+    {
+      "id": "a-2026-11-23-1",
+      "title": { "ar": "تصحيح في الفرش" },
+      "body": { "ar": "نُشر إصدار جديد من بيانات الفرش." },
+      "url": null,
+      "startsAt": "2026-11-23T00:00:00Z",
+      "endsAt": "2026-12-01T00:00:00Z",
+      "priority": "normal"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "keyId": "test",
+  "note": "Test-only Ed25519 key. Never add to trustedKeys in any released build (01 §3).",
+  "privateKeySeedBase64": "gdxLDloAY3zfBha5yBsxpqQvweaDwBx5DvRr6KEXHH0=",
+  "publicKeyBase64": "dmHUwfy+4uCzci4wfKDW9eUOx4PT4an3W3uCBXUR+fQ="
+}
