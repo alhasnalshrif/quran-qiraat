@@ -1,6 +1,35 @@
-import { PROTOCOL_VERSION } from '@quran/contracts';
+import { serve } from '@hono/node-server';
 
-export const serverInfo = {
-  name: '@quran/server',
-  protocol: PROTOCOL_VERSION,
-} as const;
+import { createApp } from './app.js';
+import { createDatabase, databaseIsHealthy } from './db/client.js';
+import { loadEnv } from './env.js';
+
+/** Starts the server after validating the environment (02 §2, §9). */
+async function main(): Promise<void> {
+  const env = loadEnv();
+  const db = createDatabase(env.DATABASE_URL);
+
+  if (!(await databaseIsHealthy(db))) {
+    console.error('Cannot reach the database at DATABASE_URL; refusing to start.');
+    process.exitCode = 1;
+    await db.end();
+    return;
+  }
+
+  const app = createApp({ db });
+  const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
+    console.log(`@quran/server listening on port ${info.port}`);
+  });
+
+  const shutdown = async () => {
+    server.close();
+    await db.end();
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+});
