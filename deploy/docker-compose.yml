@@ -1,34 +1,24 @@
 services:
-  postgres:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-quran}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-quran}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-quran} -d ${POSTGRES_DB:-quran}']
-      interval: 10s
-      timeout: 5s
-      retries: 12
-
-  server:
+  quran-server:
     build:
       context: ..
       dockerfile: server/Dockerfile
+    image: quran-server:latest
+    container_name: quran-server
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file:
       - ../server/.env
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-quran}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-quran}
-      PORT: 8787
-    expose:
-      - '8787'
+    # proxy is for Traefik; jwla is where the shared postgres container lives.
+    networks: [proxy, jwla]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.quran.rule=Host(`quran.alhasnalshrif.com`)
+      - traefik.http.routers.quran.entrypoints=web
+      - traefik.http.routers.quran-secure.rule=Host(`quran.alhasnalshrif.com`)
+      - traefik.http.routers.quran-secure.entrypoints=websecure
+      - traefik.http.routers.quran-secure.tls=true
+      - traefik.http.services.quran.loadbalancer.server.port=8787
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -36,37 +26,25 @@ services:
       retries: 3
       start_period: 20s
 
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    depends_on:
-      - server
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-
-  # Daily pg_dump into the same R2 bucket, keeping 30 days (02 §9).
-  backup:
+  # Daily pg_dump into R2, keeping 30 days (02 §9).
+  quran-backup:
     build:
       context: .
       dockerfile: backup.Dockerfile
+    container_name: quran-backup
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file:
       - ../server/.env
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGHOST: postgres
-      PGUSER: ${POSTGRES_USER:-quran}
+      PGUSER: ${POSTGRES_USER:-admin}
       PGDATABASE: ${POSTGRES_DB:-quran}
+    networks: [jwla]
 
-volumes:
-  postgres-data:
-  caddy-data:
-  caddy-config:
+networks:
+  # Both already exist on the VPS; this project only joins them.
+  proxy:
+    external: true
+  jwla:
+    external: true
