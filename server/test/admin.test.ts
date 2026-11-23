@@ -4,6 +4,7 @@ import { createApp } from '../src/app.js';
 import { createDatabase, type Database } from '../src/db/client.js';
 import { hashPassword } from '../src/services/auth.js';
 import { OneSignal } from '../src/services/onesignal.js';
+import { ManifestSigner } from '../src/services/manifest-signer.js';
 import { PackStorage } from '../src/services/storage.js';
 import { buildFilters } from '../src/services/onesignal.js';
 import { runMigrations } from './helpers/migrate.js';
@@ -26,6 +27,10 @@ let ownerId: string;
 const ownerPassword = 'owner-password-123';
 const editorPassword = 'editor-password-123';
 
+const testSigner = ManifestSigner.fromSeed(
+  Buffer.alloc(32, 7).toString('base64'),
+  'k1',
+);
 const onesignal = new OneSignal({
   appIdStable: 's',
   appIdBeta: 'b',
@@ -59,7 +64,7 @@ beforeAll(async () => {
     values ('s9-editor@example.com', ${await hashPassword(editorPassword)}, 'editor')
   `;
 
-  app = createApp({ db, storage, onesignal, secureCookies: false });
+  app = createApp({ db, storage, onesignal, signer: testSigner, cdnBaseUrl: 'https://cdn.example.com', secureCookies: false });
 
   const ownerLogin = await login('s9-owner@example.com', ownerPassword);
   ownerToken = ownerLogin.token;

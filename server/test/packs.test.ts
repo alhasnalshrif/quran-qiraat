@@ -4,6 +4,7 @@ import { createApp } from '../src/app.js';
 import { createDatabase, type Database } from '../src/db/client.js';
 import { hashPassword } from '../src/services/auth.js';
 import { OneSignal } from '../src/services/onesignal.js';
+import { ManifestSigner } from '../src/services/manifest-signer.js';
 import { PackStorage, sha256Hex } from '../src/services/storage.js';
 import { startFakeS3, type FakeS3 } from './helpers/fake-s3.js';
 import { runMigrations } from './helpers/migrate.js';
@@ -19,6 +20,10 @@ const databaseUrl =
 let db: Database;
 let s3: FakeS3;
 let app: ReturnType<typeof createApp>;
+const testSigner = ManifestSigner.fromSeed(
+  Buffer.alloc(32, 7).toString('base64'),
+  'k1',
+);
 const onesignal = new OneSignal({
   appIdStable: 's',
   appIdBeta: 'b',
@@ -64,6 +69,8 @@ beforeAll(async () => {
       secretAccessKey: 'test-secret',
     }),
     onesignal,
+    signer: testSigner,
+    cdnBaseUrl: 'https://cdn.example.com',
     secureCookies: false,
   });
 

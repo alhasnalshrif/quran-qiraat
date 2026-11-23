@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { createDatabase, databaseIsHealthy } from './db/client.js';
 import { loadEnv } from './env.js';
 import { OneSignal } from './services/onesignal.js';
+import { ManifestSigner } from './services/manifest-signer.js';
 import { PackStorage } from './services/storage.js';
 
 /** Starts the server after validating the environment (02 §2, §9). */
@@ -11,6 +12,7 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const db = createDatabase(env.DATABASE_URL);
   const storage = PackStorage.fromEnv(env);
+  const signer = ManifestSigner.fromSeed(env.MANIFEST_SIGNING_KEY, env.MANIFEST_KEY_ID);
   const onesignal = new OneSignal({
     appIdStable: env.ONESIGNAL_APP_ID_STABLE,
     appIdBeta: env.ONESIGNAL_APP_ID_BETA,
@@ -27,7 +29,14 @@ async function main(): Promise<void> {
 
   // Cookies are Secure except on plain-HTTP localhost development.
   const secureCookies = env.PUBLIC_BASE_URL.startsWith('https://');
-  const app = createApp({ db, storage, onesignal, secureCookies });
+  const app = createApp({
+    db,
+    storage,
+    onesignal,
+    signer,
+    cdnBaseUrl: env.CDN_BASE_URL,
+    secureCookies,
+  });
   const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     console.log(`@quran/server listening on port ${info.port}`);
   });

@@ -14,12 +14,15 @@ import {
   type PackVersionStatus,
 } from '../../services/packs.js';
 import type { PackStorage } from '../../services/storage.js';
+import type { ManifestCache } from '../public.js';
 import type { ActiveSession } from '../../services/sessions.js';
 import { requireRole } from '../../middleware/auth.js';
 
 export interface PackRoutesOptions {
   sql: Database;
   storage: PackStorage;
+  /** Cleared after any publish or revoke (02 §4). */
+  manifestCache?: ManifestCache | undefined;
 }
 
 type Env = { Variables: { session: ActiveSession } };
@@ -51,7 +54,7 @@ const channels: Channel[] = ['stable', 'beta', 'internal'];
  * uploads, validate against the stored bytes and the contract validators,
  * release to a channel, and revoke.
  */
-export function packRoutes({ sql, storage }: PackRoutesOptions): Hono<Env> {
+export function packRoutes({ sql, storage, manifestCache }: PackRoutesOptions): Hono<Env> {
   const app = new Hono<Env>();
 
   app.get('/packs', async (c) => {
@@ -317,6 +320,7 @@ export function packRoutes({ sql, storage }: PackRoutesOptions): Hono<Env> {
       await moveStatus(sql, found, 'published');
     }
 
+    manifestCache?.clear();
     await audit(sql, {
       userId: c.get('session').user.id,
       action: 'pack_version.publish',
@@ -336,6 +340,7 @@ export function packRoutes({ sql, storage }: PackRoutesOptions): Hono<Env> {
 
     await sql`delete from channel_releases where pack_version_id = ${found.id}`;
     await moveStatus(sql, found, 'revoked');
+    manifestCache?.clear();
     await audit(sql, {
       userId: c.get('session').user.id,
       action: 'pack_version.revoke',

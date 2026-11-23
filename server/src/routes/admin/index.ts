@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import type { Database } from '../../db/client.js';
 import type { PackStorage } from '../../services/storage.js';
 import type { OneSignal } from '../../services/onesignal.js';
+import type { ManifestCache } from '../public.js';
 import { SessionStore, type ActiveSession } from '../../services/sessions.js';
 import { requireCsrf, requireSession } from '../../middleware/auth.js';
 import { adminRoutes } from './admin.js';
@@ -14,6 +15,8 @@ export interface AdminRouterOptions {
   db: Database;
   storage: PackStorage;
   onesignal: OneSignal;
+  /** Cleared on publish so the next request rebuilds (02 §4). */
+  manifestCache?: ManifestCache;
   secureCookies: boolean;
   now?: (() => Date) | undefined;
 }
@@ -50,7 +53,14 @@ export function adminRouter(
     });
   });
 
-  protectedRoutes.route('/', packRoutes({ sql: options.db, storage: options.storage }));
+  protectedRoutes.route(
+    '/',
+    packRoutes({
+      sql: options.db,
+      storage: options.storage,
+      manifestCache: options.manifestCache,
+    }),
+  );
   protectedRoutes.route('/', adminRoutes({ sql: options.db }));
   protectedRoutes.route(
     '/',
