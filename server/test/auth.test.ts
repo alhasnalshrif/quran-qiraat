@@ -4,6 +4,7 @@ import { createApp } from '../src/app.js';
 import { createDatabase, type Database } from '../src/db/client.js';
 import { runMigrations } from './helpers/migrate.js';
 import { hashPassword } from '../src/services/auth.js';
+import { PackStorage } from '../src/services/storage.js';
 
 /**
  * S-05 against a real Postgres: login success/failure, the 5-attempt lock,
@@ -14,6 +15,13 @@ const databaseUrl =
 
 let db: Database;
 let app: ReturnType<typeof createApp>;
+const storage = PackStorage.fromConfig({
+  endpoint: 'http://127.0.0.1:9',
+  region: 'auto',
+  bucket: 'quran-test',
+  accessKeyId: 'test',
+  secretAccessKey: 'test',
+});
 let ownerId: string;
 let editorId: string;
 const now = new Date('2026-11-23T10:00:00Z');
@@ -39,7 +47,7 @@ beforeAll(async () => {
   ownerId = owner!.id;
   editorId = editor!.id;
 
-  app = createApp({ db, secureCookies: false, now: () => now });
+  app = createApp({ db, storage, secureCookies: false, now: () => now });
 }, 30000);
 
 afterAll(async () => {

@@ -1,18 +1,22 @@
-import { Hono, type Context } from 'hono';
-import { createDatabase } from '../../db/client.js';
+import { Hono } from 'hono';
+
+import type { Database } from '../../db/client.js';
+import type { PackStorage } from '../../services/storage.js';
 import { SessionStore, type ActiveSession } from '../../services/sessions.js';
-import { requireCsrf, requireSession, unauthorized } from '../../middleware/auth.js';
+import { requireCsrf, requireSession } from '../../middleware/auth.js';
 import { authRoutes } from './auth.js';
+import { packRoutes } from './packs.js';
 
 export interface AdminRouterOptions {
-  db: ReturnType<typeof createDatabase>;
+  db: Database;
+  storage: PackStorage;
   secureCookies: boolean;
   now?: (() => Date) | undefined;
 }
 
 /**
- * Mounts `/admin/api` (02 §5): login is open, `/me` needs a session, and every
- * state-changing route needs the CSRF header as well.
+ * Mounts `/admin/api` (02 §5): login is open, and every other route needs a
+ * session, with the CSRF header on writes.
  */
 export function adminRouter(
   options: AdminRouterOptions,
@@ -42,8 +46,8 @@ export function adminRouter(
     });
   });
 
+  protectedRoutes.route('/', packRoutes({ sql: options.db, storage: options.storage }));
+
   app.route('/', protectedRoutes);
   return app;
 }
-
-export { unauthorized, type Context };
