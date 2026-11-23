@@ -5,8 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_repository.dart';
 import '../features/reader/mushaf_reader_page.dart';
+import 'quran_theme.dart';
 
-class QuranQiraatApp extends StatelessWidget {
+class QuranQiraatApp extends StatefulWidget {
   const QuranQiraatApp({
     super.key,
     required this.preferences,
@@ -17,24 +18,29 @@ class QuranQiraatApp extends StatelessWidget {
   final QuranRepository quran;
 
   @override
+  State<QuranQiraatApp> createState() => _QuranQiraatAppState();
+}
+
+class _QuranQiraatAppState extends State<QuranQiraatApp> {
+  late ThemeMode _appearance = readerThemeMode(widget.preferences);
+
+  @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     title: 'مصحف القراءات',
     scrollBehavior: const QuranScrollBehavior(),
-    theme: ThemeData(
-      useMaterial3: true,
-      fontFamily: 'NotoSansArabic',
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xff4f9259),
-        surface: const Color(0xfffffdf7),
-      ),
-      scaffoldBackgroundColor: const Color(0xfffffdf7),
+    locale: quranLocales.first,
+    supportedLocales: quranLocales,
+    localizationsDelegates: quranLocalizations,
+    theme: quranTheme(night: false),
+    darkTheme: quranTheme(night: true),
+    themeMode: _appearance,
+    themeAnimationDuration: Duration.zero,
+    home: MushafReaderPage(
+      preferences: widget.preferences,
+      quran: widget.quran,
+      onAppearanceChanged: (mode) => setState(() => _appearance = mode),
     ),
-    builder: (context, child) => Directionality(
-      textDirection: TextDirection.rtl,
-      child: child ?? const SizedBox.shrink(),
-    ),
-    home: MushafReaderPage(preferences: preferences, quran: quran),
   );
 }
 

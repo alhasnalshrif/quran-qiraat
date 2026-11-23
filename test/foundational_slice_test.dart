@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:quran_qiraat/quran_qiraat.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'reader_test_controls.dart';
+
 void main() {
   group('Domain models and manifest', () {
     test('manifest designates the bundled Hafs line layout and navigation', () {
@@ -141,6 +143,8 @@ void main() {
     test('supports 1:1, 1:N, N:1 alignment cardinalities for published differences', () {
       final oneToOne = ReadingDifference.published(
         id: '1',
+        reviewer: 'Synthetic test fixture',
+        reviewDate: DateTime.utc(2026, 1, 1),
         targetReading: QuranReading.shubah,
         baseSpan: ReadingWordSpan.singleWord(
           reading: QuranReading.hafs,
@@ -163,6 +167,8 @@ void main() {
 
       final oneToMany = ReadingDifference.published(
         id: '2',
+        reviewer: 'Synthetic test fixture',
+        reviewDate: DateTime.utc(2026, 1, 1),
         targetReading: QuranReading.qalun,
         baseSpan: ReadingWordSpan.singleWord(
           reading: QuranReading.hafs,
@@ -186,6 +192,8 @@ void main() {
 
       final manyToOne = ReadingDifference.published(
         id: '3',
+        reviewer: 'Synthetic test fixture',
+        reviewDate: DateTime.utc(2026, 1, 1),
         targetReading: QuranReading.shubah,
         baseSpan: const ReadingWordSpan(
           reading: QuranReading.hafs,
@@ -210,6 +218,8 @@ void main() {
     test('supports performance-only difference flag', () {
       final perfDiff = ReadingDifference.published(
         id: 'perf_1',
+        reviewer: 'Synthetic test fixture',
+        reviewDate: DateTime.utc(2026, 1, 1),
         targetReading: QuranReading.shubah,
         baseSpan: ReadingWordSpan.singleWord(
           reading: QuranReading.hafs,
@@ -230,9 +240,7 @@ void main() {
       );
 
       expect(perfDiff.isPerformanceOnly, isTrue);
-      final comparison = WordComparison.fromReadingDifference(perfDiff);
-      expect(comparison.isPerformanceOnly, isTrue);
-      expect(comparison.scholarlyNotes, contains('إمالة'));
+      expect(perfDiff.scholarlyNotes, contains('إمالة'));
     });
   });
 
@@ -277,28 +285,15 @@ void main() {
           candidateDifferences: [candidateRecord],
         );
 
-        // Candidate locator is recorded internally
+        expect(quran.candidateDifferencesOnPage(MarginRiwayah.shubah, 1), [
+          candidateRecord,
+        ]);
         expect(
-          quran.hasCandidateDifference(MarginRiwayah.shubah, hafsAyah),
-          isTrue,
-        );
-        expect(
-          quran.hasCandidateDifferencesOnPage(MarginRiwayah.shubah, 1),
-          isTrue,
-        );
-
-        // But candidate is NOT returned to end-user as published difference
-        expect(
-          quran.hasPublishedDifference(MarginRiwayah.shubah, hafsAyah),
-          isFalse,
-        );
-        expect(
-          quran.hasPublishedDifferencesOnPage(MarginRiwayah.shubah, 1),
-          isFalse,
-        );
-        expect(quran.differencesFor(MarginRiwayah.shubah, [hafsAyah]), isEmpty);
-        expect(
-          quran.highlightedWordsFor(MarginRiwayah.shubah, hafsAyah),
+          quran.publishedDifferencesForPairOnPage(
+            QuranReading.hafs,
+            QuranReading.shubah,
+            1,
+          ),
           isEmpty,
         );
         expect(
@@ -319,6 +314,8 @@ void main() {
       () {
         final publishedDiff = ReadingDifference.published(
           id: 'pub_1',
+          reviewer: 'Synthetic test fixture',
+          reviewDate: DateTime.utc(2026, 1, 1),
           targetReading: QuranReading.shubah,
           baseSpan: ReadingWordSpan.singleWord(
             reading: QuranReading.hafs,
@@ -347,20 +344,23 @@ void main() {
         );
 
         expect(
-          quran.hasPublishedDifference(MarginRiwayah.shubah, hafsAyah),
-          isTrue,
+          quran.publishedDifferencesForPairOnPage(
+            QuranReading.hafs,
+            QuranReading.shubah,
+            1,
+          ),
+          [publishedDiff],
         );
         expect(
-          quran.hasPublishedDifferencesOnPage(MarginRiwayah.shubah, 1),
-          isTrue,
+          quran.publishedDifferenceForWord(
+            baseReading: QuranReading.hafs,
+            comparisonReading: QuranReading.shubah,
+            surah: 1,
+            ayah: 4,
+            wordIndex: 1,
+          ),
+          same(publishedDiff),
         );
-        expect(quran.highlightedWordsFor(MarginRiwayah.shubah, hafsAyah), [1]);
-
-        final differences = quran.differencesFor(MarginRiwayah.shubah, [
-          hafsAyah,
-        ]);
-        expect(differences.length, 1);
-        expect(differences.first.difference, equals(publishedDiff));
       },
     );
   });
@@ -518,58 +518,60 @@ void main() {
       );
     });
 
-    testWidgets(
-      'drawer distinguishes candidate unreviewed data from no differences',
-      (tester) async {
-        SharedPreferences.setMockInitialValues({
-          'primary_reading': 'hafs',
-          'last_page': 1,
-        });
-        final preferences = await SharedPreferences.getInstance();
+    testWidgets('drawer never shows unreviewed candidate data', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'differences_placement': 'hidden',
+        'primary_reading': 'hafs',
+        'last_page': 1,
+      });
+      final preferences = await SharedPreferences.getInstance();
 
-        // Case A: Raw candidate locator exists on page 1
-        const candidateRecord = CandidateDifferenceRecord(
-          id: 'cand_1',
-          sourceId: 'differences_taisir',
-          sourceReading: MarginRiwayah.shubah,
-          surah: 1,
-          hafsAyah: 1,
-          hafsPage: 1,
-          rawWordIndex: 1,
-        );
+      // Case A: Raw candidate locator exists on page 1
+      const candidateRecord = CandidateDifferenceRecord(
+        id: 'cand_1',
+        sourceId: 'differences_taisir',
+        sourceReading: MarginRiwayah.shubah,
+        surah: 1,
+        hafsAyah: 1,
+        hafsPage: 1,
+        rawWordIndex: 1,
+      );
 
-        final quranWithCandidate = QuranRepository(
-          hafsByPage: {
-            1: [hafsAyah],
-          },
-          shubah: {'1:1': shubahAyah},
-          qalun: {},
-          candidateDifferences: const [candidateRecord],
-          publishedDifferences: const [],
-        );
+      final quranWithCandidate = QuranRepository(
+        hafsByPage: {
+          1: [hafsAyah],
+        },
+        shubah: {'1:1': shubahAyah},
+        qalun: {},
+        candidateDifferences: const [candidateRecord],
+        publishedDifferences: const [],
+      );
 
-        await tester.pumpWidget(
-          QuranQiraatApp(preferences: preferences, quran: quranWithCandidate),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        QuranQiraatApp(preferences: preferences, quran: quranWithCandidate),
+      );
+      await tester.pumpAndSettle();
 
-        // Open differences drawer
-        await tester.tap(find.text('الفروق'));
-        await tester.pumpAndSettle();
+      // Open differences drawer
+      await tapReaderToToggleControls(tester);
+      await tester.tap(find.text('الفروق'));
+      await tester.pumpAndSettle();
 
-        // Must clearly state data is unreviewed candidate data and not published
-        expect(find.text('مقترحات آلية قيد المراجعة العلمية'), findsOneWidget);
-        expect(find.textContaining('حفص:'), findsOneWidget);
-        expect(find.textContaining('شعبة:'), findsOneWidget);
-        expect(find.textContaining('تصنيف آلي:'), findsOneWidget);
-        expect(find.text('لا توجد فروق معتمدة في هذه الصفحة'), findsNothing);
-      },
-    );
+      // Qiraat content comes only from the published farsh; unreviewed
+      // candidate records are kept out of the reader.
+      expect(find.text('مقترحات آلية قيد المراجعة العلمية'), findsNothing);
+      expect(find.textContaining('تصنيف آلي:'), findsNothing);
+      expect(
+        find.text('لا يذكر الفرش مواضع خلاف في هذه الصفحة.'),
+        findsOneWidget,
+      );
+    });
 
     testWidgets(
       'drawer accurately reports when no differences or candidates exist',
       (tester) async {
         SharedPreferences.setMockInitialValues({
+          'differences_placement': 'hidden',
           'primary_reading': 'hafs',
           'last_page': 1,
         });
@@ -590,10 +592,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        await tapReaderToToggleControls(tester);
         await tester.tap(find.text('الفروق'));
         await tester.pumpAndSettle();
 
-        expect(find.text('لا توجد فروق معتمدة في هذه الصفحة'), findsOneWidget);
+        expect(
+          find.text('لا يذكر الفرش مواضع خلاف في هذه الصفحة.'),
+          findsOneWidget,
+        );
         expect(find.text('مقترحات آلية قيد المراجعة العلمية'), findsNothing);
       },
     );
@@ -602,6 +608,7 @@ void main() {
       tester,
     ) async {
       SharedPreferences.setMockInitialValues({
+        'differences_placement': 'hidden',
         'primary_reading': 'hafs',
         'last_page': 1,
       });
@@ -609,6 +616,8 @@ void main() {
 
       final reviewed1ToN = ReadingDifference.published(
         id: 'rev_1',
+        reviewer: 'Synthetic test fixture',
+        reviewDate: DateTime.utc(2026, 1, 1),
         targetReading: QuranReading.shubah,
         baseSpan: ReadingWordSpan.singleWord(
           reading: QuranReading.hafs,
@@ -643,6 +652,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tapReaderToToggleControls(tester);
       await tester.tap(find.text('الفروق'));
       await tester.pumpAndSettle();
 
@@ -667,7 +677,8 @@ void main() {
         Directionality.of(tester.element(find.byType(Scaffold))),
         TextDirection.rtl,
       );
-      expect(find.text('مصحف القراءات'), findsOneWidget);
+      await tapReaderToToggleControls(tester);
+      expect(find.byTooltip('الفهرس والبحث والعلامات'), findsOneWidget);
       expect(find.text('القراءتان'), findsOneWidget);
       expect(find.text('حفص × شعبة'), findsOneWidget);
     });

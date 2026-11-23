@@ -43,9 +43,24 @@ class ReadingDifference {
     this.scholarlyNotes,
     this.reviewer,
     this.reviewDate,
-  }) : assert(baseReading != targetReading),
-       assert(baseSpan.reading == baseReading),
-       assert(targetSpan.reading == targetReading);
+  }) {
+    if (id.trim().isEmpty ||
+        baseReading == targetReading ||
+        baseSpan.reading != baseReading ||
+        targetSpan.reading != targetReading) {
+      throw const FormatException(
+        'Invalid reading difference identity or readings.',
+      );
+    }
+    baseSpan.validate();
+    targetSpan.validate();
+    if (isPublished &&
+        ((reviewer?.trim().isEmpty ?? true) || reviewDate == null)) {
+      throw const FormatException(
+        'Published differences require reviewer and valid review_date.',
+      );
+    }
+  }
 
   final String id;
   final QuranReading baseReading;
@@ -131,7 +146,7 @@ class ReadingDifference {
 
     final reviewer = json['reviewer'] as String?;
     final reviewDate = json['review_date'] != null
-        ? DateTime.tryParse(json['review_date'] as String)
+        ? _parseReviewDate(json['review_date'] as String)
         : null;
     final reviewStatus = _parseReviewStatus(statusName);
     if (reviewStatus == DifferenceReviewStatus.published &&
@@ -171,6 +186,17 @@ class ReadingDifference {
     if (reviewer != null) 'reviewer': reviewer,
     if (reviewDate != null) 'review_date': reviewDate!.toIso8601String(),
   };
+}
+
+DateTime? _parseReviewDate(String value) {
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})(?:T|$)').firstMatch(value);
+  if (match == null) return null;
+  final year = int.parse(match[1]!);
+  final month = int.parse(match[2]!);
+  final day = int.parse(match[3]!);
+  final date = DateTime.utc(year, month, day);
+  if (date.year != year || date.month != month || date.day != day) return null;
+  return DateTime.tryParse(value);
 }
 
 QuranReading _parseReading(String name) {

@@ -24,8 +24,7 @@ class MushafEdition {
   final String version;
 
   /// True only when a vetted, bundled, renderer-usable word/line layout package
-  /// is present and active. False in this foundation because the app currently
-  /// renders flow text within page containers rather than a vetted layout package.
+  /// is present and active. This does not imply pixel-identical page fonts.
   final bool isPageLayoutCapable;
 
   /// The intended/target page layout architecture (e.g. "madani_604").

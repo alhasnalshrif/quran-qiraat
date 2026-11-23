@@ -1,0 +1,4 @@
+storeFile=/absolute/path/to/your-release-keystore.jks
+storePassword=replace-locally
+keyAlias=replace-locally
+keyPassword=replace-locally

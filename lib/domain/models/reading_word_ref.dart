@@ -23,13 +23,17 @@ class ReadingWordRef {
   factory ReadingWordRef.fromJson(Map<String, dynamic> json) {
     final readingName = json['reading'] as String;
     final reading = _parseReading(readingName);
-    return ReadingWordRef(
+    final ref = ReadingWordRef(
       reading: reading,
       surah: json['surah'] as int,
       ayah: json['ayah'] as int,
       wordIndex: json['word_index'] as int,
       text: json['text'] as String?,
     );
+    if (ref.surah < 1 || ref.surah > 114 || ref.ayah < 1 || ref.wordIndex < 1) {
+      throw const FormatException('Invalid reading word reference.');
+    }
+    return ref;
   }
 
   Map<String, dynamic> toJson() => {
@@ -75,6 +79,17 @@ class ReadingWordSpan {
   bool containsWord(int index) =>
       index >= startWordIndex && index <= endWordIndex;
 
+  void validate() {
+    if (surah < 1 ||
+        surah > 114 ||
+        ayah < 1 ||
+        startWordIndex < 1 ||
+        endWordIndex < startWordIndex ||
+        text.trim().isEmpty) {
+      throw const FormatException('Invalid reading word span.');
+    }
+  }
+
   factory ReadingWordSpan.singleWord({
     required QuranReading reading,
     required int surah,
@@ -93,7 +108,7 @@ class ReadingWordSpan {
   factory ReadingWordSpan.fromJson(Map<String, dynamic> json) {
     final readingName = json['reading'] as String;
     final reading = _parseReading(readingName);
-    return ReadingWordSpan(
+    final span = ReadingWordSpan(
       reading: reading,
       surah: json['surah'] as int,
       ayah: json['ayah'] as int,
@@ -101,6 +116,8 @@ class ReadingWordSpan {
       endWordIndex: json['end_word_index'] as int,
       text: json['text'] as String,
     );
+    span.validate();
+    return span;
   }
 
   Map<String, dynamic> toJson() => {

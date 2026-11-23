@@ -1,12 +1,8 @@
 import 'package:flutter/widgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'app/quran_qiraat_app.dart';
-import 'data/quran_repository.dart';
+import 'app/quran_bootstrap.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  final preferences = await SharedPreferences.getInstance();
-  final quran = await QuranRepository.load();
-  runApp(QuranQiraatApp(preferences: preferences, quran: quran));
+  runApp(const QuranBootstrap());
 }

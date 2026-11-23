@@ -1,17 +1,19 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:unorm_dart/unorm_dart.dart' as unicode;
 
 import '../domain/models/ayah.dart';
 import '../domain/models/ayah_correspondence.dart';
 import '../domain/models/candidate_difference_record.dart';
-import '../domain/models/margin_difference.dart';
 import '../domain/models/margin_riwayah.dart';
 import '../domain/models/mushaf_edition.dart';
 import '../domain/models/mushaf_layout.dart';
 import '../domain/models/reading_difference.dart';
 import '../domain/models/reading_alignment.dart';
+import '../domain/models/reading_word_ref.dart';
 import '../domain/services/reading_alignment_engine.dart';
+import '../domain/models/qiraat_variants.dart';
 import 'mushaf_layout_repository.dart';
 
 class QuranRepository {
@@ -27,8 +29,7 @@ class QuranRepository {
     this.hafsByKey = const {},
     this.ayahCounterpartIndex = const {},
     this.ayahCorrespondenceIndex = const {},
-    @Deprecated('Use publishedDifferences or candidateDifferences instead.')
-    this.differenceWords = const {},
+    this.qiraatVariants,
   });
 
   final MushafManifest manifest;
@@ -54,9 +55,11 @@ class QuranRepository {
   final Map<String, List<ReadingAyahRef>> ayahCounterpartIndex;
   final Map<String, AyahCorrespondence> ayahCorrespondenceIndex;
 
-  /// Deprecated legacy map retained strictly for backward compatibility with isolated tests.
-  @Deprecated('Use publishedDifferences or candidateDifferences instead.')
-  final Map<MarginRiwayah, Map<String, List<int>>> differenceWords;
+  /// Farsh of the ten readers from Quran Tajweed Engine, shown as published.
+  final QiraatVariants? qiraatVariants;
+
+  static final _caches = Expando<_RepositoryCache>();
+  _RepositoryCache get _cache => _caches[this] ??= _RepositoryCache(this);
 
   List<Ayah> page(int pageNumber) => hafsByPage[pageNumber] ?? const <Ayah>[];
 
@@ -95,6 +98,29 @@ class QuranRepository {
       final value = _ayahMap(targetReading)['$surah:$ayah'];
       return value == null ? const [] : [value];
     }
+    // Compose the explicit Hafs/Qalun map with the packaged Hafs/Shu'bah
+    // ayah numbering. This does not transfer word indices between readings.
+    if (sourceReading == QuranReading.shubah &&
+        targetReading == QuranReading.qalun) {
+      return ayahsCorrespondingTo(
+        sourceReading: QuranReading.hafs,
+        targetReading: targetReading,
+        surah: surah,
+        ayah: ayah,
+      );
+    }
+    if (sourceReading == QuranReading.qalun &&
+        targetReading == QuranReading.shubah) {
+      return [
+        for (final hafs in ayahsCorrespondingTo(
+          sourceReading: sourceReading,
+          targetReading: QuranReading.hafs,
+          surah: surah,
+          ayah: ayah,
+        ))
+          ?shubah[hafs.key],
+      ];
+    }
     final sourceRef = ReadingAyahRef(
       reading: sourceReading,
       surah: surah,
@@ -121,7 +147,11 @@ class QuranRepository {
     required int ayah,
     required int wordIndex,
   }) {
-    for (final difference in publishedDifferences) {
+    for (final difference
+        in _cache
+                .publishedByWord['${baseReading.name}:$surah:$ayah:$wordIndex'] ??
+            const <ReadingDifference>[]) {
+      if (!difference.isPublished) continue;
       final isForward =
           difference.baseReading == baseReading &&
           difference.targetReading == comparisonReading &&
@@ -151,7 +181,9 @@ class QuranRepository {
     if (baseReading != QuranReading.hafs) return null;
     final target = comparisonReading.differenceSource;
     if (target == null) return null;
-    for (final candidate in candidateDifferences) {
+    for (final candidate
+        in _cache.candidatesByWord['$surah:$ayah:$wordIndex'] ??
+            const <CandidateDifferenceRecord>[]) {
       if (candidate.sourceReading == target &&
           candidate.surah == surah &&
           candidate.hafsAyah == ayah &&
@@ -161,6 +193,21 @@ class QuranRepository {
     }
     return null;
   }
+
+  /// Farsh junctures on a Hafs page, in page order.
+  List<Juncture> qiraatJuncturesOnPage(int pageNumber) {
+    final variants = qiraatVariants;
+    if (variants == null) return const [];
+    final seen = <Juncture>{};
+    return [
+      for (final ayah in page(pageNumber))
+        for (final juncture in variants.forAyah(ayah.key))
+          if (seen.add(juncture)) juncture,
+    ];
+  }
+
+  /// Uthmani Hafs text of an ayah from the line layout, with its number.
+  String? hafsLayoutAyahText(String ayahKey) => _cache.hafsLayoutText[ayahKey];
 
   /// Returns an ayah only when the datasets share an explicit ayah key.
   /// This is deliberately not a word alignment across readings.
@@ -203,28 +250,69 @@ class QuranRepository {
     required int ayah,
     ReadingAlignmentEngine engine = const ReadingAlignmentEngine(),
   }) {
+    final cacheKey =
+        '${sourceReading.name}>${targetReading.name}:$surah:$ayah:${engine.maximumGroupSize}';
+    final cached = _cache.alignments[cacheKey];
+    if (cached != null) return cached;
+    final pair = _comparisonPair(sourceReading, targetReading, surah, ayah);
+    if (pair == null) return null;
+    final proposal = engine.align(pair);
+    if (_cache.alignments.length >= 128) {
+      _cache.alignments.remove(_cache.alignments.keys.first);
+    }
+    _cache.alignments[cacheKey] = proposal;
+    return proposal;
+  }
+
+  ExplicitAyahPair? _comparisonPair(
+    QuranReading sourceReading,
+    QuranReading targetReading,
+    int surah,
+    int ayah, {
+    bool useHafsLayout = false,
+  }) {
+    if (sourceReading == targetReading) return null;
+    final comparesQalun =
+        sourceReading == QuranReading.qalun ||
+        targetReading == QuranReading.qalun;
+    // The bundled Qalun text has no numbered basmala in Al-Fatihah.
+    // Its mapping groups the Hafs basmala with Qalun 1:1 for navigation.
+    final omitBasmala = useHafsLayout && comparesQalun && surah == 1;
+    if (omitBasmala && sourceReading != QuranReading.qalun && ayah == 1) {
+      return null;
+    }
+    final mappingSource =
+        sourceReading == QuranReading.shubah &&
+            targetReading == QuranReading.qalun
+        ? QuranReading.hafs
+        : sourceReading;
+    final mappingTarget =
+        targetReading == QuranReading.shubah &&
+            sourceReading == QuranReading.qalun
+        ? QuranReading.hafs
+        : targetReading;
     final sourceRef = ReadingAyahRef(
-      reading: sourceReading,
+      reading: mappingSource,
       surah: surah,
       ayah: ayah,
     );
     final correspondence =
-        ayahCorrespondenceIndex[_correspondenceKey(sourceRef, targetReading)] ??
+        ayahCorrespondenceIndex[_correspondenceKey(sourceRef, mappingTarget)] ??
         ayahCorrespondences
             .where(
               (item) => item
                   .counterparts(sourceRef)
-                  .any((ref) => ref.reading == targetReading),
+                  .any((ref) => ref.reading == mappingTarget),
             )
             .firstOrNull;
     final sourceRefs = correspondence == null
         ? [sourceRef]
-        : (correspondence.base.first.reading == sourceReading
+        : (correspondence.base.first.reading == mappingSource
               ? correspondence.base
               : correspondence.target);
     final targetRefs = correspondence == null
         ? <ReadingAyahRef>[]
-        : (correspondence.base.first.reading == targetReading
+        : (correspondence.base.first.reading == mappingTarget
               ? correspondence.base
               : correspondence.target);
     final sourceMap = _ayahMap(sourceReading);
@@ -237,38 +325,76 @@ class QuranRepository {
       final directTarget = targetMap['$surah:$ayah'];
       if (directTarget != null) targets.add(directTarget);
     }
-    if (sources.isEmpty) return null;
-    if (targets.isEmpty) return null;
-    return engine.align(
-      ExplicitAyahPair(
-        baseReading: sourceReading,
-        baseSurah: sources.first.surah,
-        baseAyah: sources.first.number,
-        baseAyahEnd: sources.last.number,
-        baseText: sources.map((item) => item.comparisonText).join(' '),
-        targetReading: targetReading,
-        targetSurah: targets.first.surah,
-        targetAyah: targets.first.number,
-        targetAyahEnd: targets.last.number,
-        targetText: targets.map((item) => item.comparisonText).join(' '),
-      ),
+    if (sources.isEmpty ||
+        targets.isEmpty ||
+        sources.length != sourceRefs.length ||
+        (targetRefs.isNotEmpty && targets.length != targetRefs.length)) {
+      return null;
+    }
+    String textFor(QuranReading reading, List<Ayah> ayahs) => ayahs
+        .map(
+          (item) => useHafsLayout && reading == QuranReading.hafs
+              ? _cache.hafsLayoutText[item.key] ?? item.comparisonText
+              : item.comparisonText,
+        )
+        .join(' ');
+    final comparedSources = omitBasmala && sourceReading != QuranReading.qalun
+        ? sources.where((item) => item.number != 1).toList()
+        : sources;
+    final comparedTargets = omitBasmala && targetReading != QuranReading.qalun
+        ? targets.where((item) => item.number != 1).toList()
+        : targets;
+    if (comparedSources.isEmpty || comparedTargets.isEmpty) return null;
+    return ExplicitAyahPair(
+      baseReading: sourceReading,
+      baseSurah: sources.first.surah,
+      baseAyah: comparedSources.first.number,
+      baseAyahEnd: comparedSources.last.number,
+      baseText: textFor(sourceReading, comparedSources),
+      targetReading: targetReading,
+      targetSurah: targets.first.surah,
+      targetAyah: comparedTargets.first.number,
+      targetAyahEnd: comparedTargets.last.number,
+      targetText: textFor(targetReading, comparedTargets),
     );
   }
 
-  List<AyahAlignmentProposal> alignmentProposalsForPage({
-    required int pageNumber,
-    required QuranReading targetReading,
-    ReadingAlignmentEngine engine = const ReadingAlignmentEngine(),
-  }) => [
-    for (final ayah in page(pageNumber))
-      ?alignmentProposal(
-        sourceReading: QuranReading.hafs,
-        targetReading: targetReading,
-        surah: ayah.surah,
-        ayah: ayah.number,
-        engine: engine,
-      ),
-  ];
+  ({List<ExplicitAyahPair> changed, List<Ayah> unpaired}) textDifferencesOnPage(
+    QuranReading baseReading,
+    QuranReading targetReading,
+    int pageNumber,
+  ) {
+    final changed = <ExplicitAyahPair>[];
+    final unpaired = <Ayah>[];
+    final seen = <String>{};
+    for (final ayah in pageForReading(baseReading, pageNumber)) {
+      final pair = _comparisonPair(
+        baseReading,
+        targetReading,
+        ayah.surah,
+        ayah.number,
+        useHafsLayout: true,
+      );
+      if (pair == null) {
+        unpaired.add(ayah);
+        continue;
+      }
+      final key = '${pair.baseSurah}:${pair.baseAyah}:${pair.baseAyahEnd}';
+      if (seen.add(key) &&
+          comparableReadingText(pair.baseText) !=
+              comparableReadingText(pair.targetText)) {
+        changed.add(pair);
+      }
+    }
+    return (changed: changed, unpaired: unpaired);
+  }
+
+  static String comparableReadingText(String text) => unicode.nfc(
+    const ReadingAlignmentEngine()
+        .tokenize(text.replaceAll(RegExp('[\u061c\u0640\u200e\u200f]'), ''))
+        .map((token) => token.text)
+        .join(' '),
+  );
 
   ProposedWordAlignment? proposedAlignmentForCandidate(
     CandidateDifferenceRecord candidate, {
@@ -302,58 +428,46 @@ class QuranRepository {
   // Published / Reviewed Differences API
   // ---------------------------------------------------------------------------
 
-  /// Returns peer-reviewed differences on the given page for the selected [riwayah].
-  List<ReadingDifference> publishedDifferencesOnPage(
-    MarginRiwayah riwayah,
+  List<ReadingDifference> publishedDifferencesForPairOnPage(
+    QuranReading base,
+    QuranReading target,
     int pageNumber,
-  ) {
-    final targetReading = riwayah.toReading();
-    final pageVerseKeys = {for (final ayah in page(pageNumber)) ayah.key};
-    return publishedDifferences
-        .where(
-          (d) =>
-              d.targetReading == targetReading &&
-              pageVerseKeys.contains(d.baseSpan.ayahKey),
-        )
-        .toList(growable: false);
-  }
-
-  /// Whether any reviewed/published difference exists on this page.
-  bool hasPublishedDifferencesOnPage(MarginRiwayah riwayah, int pageNumber) =>
-      publishedDifferencesOnPage(riwayah, pageNumber).isNotEmpty;
-
-  /// Whether a reviewed/published difference exists for this specific Hafs verse.
-  bool hasPublishedDifference(MarginRiwayah riwayah, Ayah hafs) {
-    final targetReading = riwayah.toReading();
-    return publishedDifferences.any(
-      (d) => d.targetReading == targetReading && d.baseSpan.ayahKey == hafs.key,
-    );
-  }
-
-  /// Word indices to highlight for this verse in the main reader text.
-  /// Only published/reviewed differences are ever highlighted.
-  List<int> highlightedWordsFor(MarginRiwayah riwayah, Ayah hafs) {
-    final targetReading = riwayah.toReading();
-    final matching = publishedDifferences.where(
-      (d) => d.targetReading == targetReading && d.baseSpan.ayahKey == hafs.key,
-    );
-
-    if (matching.isNotEmpty) {
-      final indices = <int>{};
-      for (final diff in matching) {
-        for (
-          var i = diff.baseSpan.startWordIndex;
-          i <= diff.baseSpan.endWordIndex;
-          i++
-        ) {
-          indices.add(i);
+  ) => publishedDifferences
+      .where((difference) {
+        if (!difference.isPublished) return false;
+        if (!((difference.baseReading == base &&
+                difference.targetReading == target) ||
+            (difference.baseReading == target &&
+                difference.targetReading == base))) {
+          return false;
         }
-      }
-      return indices.toList()..sort();
-    }
+        if (difference.baseReading == QuranReading.hafs) {
+          return _spanOnPage(difference.baseSpan, pageNumber);
+        }
+        if (difference.targetReading == QuranReading.hafs) {
+          return _spanOnPage(difference.targetSpan, pageNumber);
+        }
+        final span = difference.baseReading == base
+            ? difference.baseSpan
+            : difference.targetSpan;
+        return pageForReading(
+          base,
+          pageNumber,
+        ).any((ayah) => ayah.key == span.ayahKey);
+      })
+      .toList(growable: false);
 
-    // Fall back to legacy differenceWords if explicitly supplied in test fixture.
-    return differenceWords[riwayah]?[hafs.key] ?? const [];
+  bool _spanOnPage(ReadingWordSpan span, int pageNumber) {
+    if (hafsLayout == null) {
+      return page(pageNumber).any((ayah) => ayah.key == span.ayahKey);
+    }
+    for (var word = span.startWordIndex; word <= span.endWordIndex; word++) {
+      if (_cache.wordPages['${span.ayahKey}:$word']?.contains(pageNumber) ??
+          false) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------------------
@@ -365,6 +479,12 @@ class QuranRepository {
     MarginRiwayah riwayah,
     int pageNumber,
   ) {
+    if (hafsLayout != null) {
+      return (_cache.candidatesByPage[pageNumber] ??
+              const <CandidateDifferenceRecord>[])
+          .where((candidate) => candidate.sourceReading == riwayah)
+          .toList(growable: false);
+    }
     final pageAyahs = page(pageNumber);
     final pageVerseKeys = {for (final ayah in pageAyahs) ayah.key};
     return candidateDifferences
@@ -376,116 +496,6 @@ class QuranRepository {
         )
         .toList(growable: false);
   }
-
-  /// Whether candidate (unreviewed) difference records exist on this page.
-  bool hasCandidateDifferencesOnPage(MarginRiwayah riwayah, int pageNumber) =>
-      candidateDifferencesOnPage(riwayah, pageNumber).isNotEmpty;
-
-  /// Whether candidate data exists for this specific Hafs verse.
-  bool hasCandidateDifference(MarginRiwayah riwayah, Ayah hafs) =>
-      candidateDifferences.any(
-        (c) =>
-            c.sourceReading == riwayah &&
-            c.surah == hafs.surah &&
-            c.hafsAyah == hafs.number,
-      );
-
-  /// Returns raw candidate locators for a specific Hafs verse.
-  List<CandidateDifferenceRecord> candidateDifferencesForAyah(
-    MarginRiwayah riwayah,
-    Ayah hafs,
-  ) => candidateDifferences
-      .where(
-        (c) =>
-            c.sourceReading == riwayah &&
-            c.surah == hafs.surah &&
-            c.hafsAyah == hafs.number,
-      )
-      .toList(growable: false);
-
-  // ---------------------------------------------------------------------------
-  // Backward Compatible / Evolved API
-  // ---------------------------------------------------------------------------
-
-  /// Returns differences for the provided Hafs verses.
-  /// Only published/reviewed differences are returned to end users.
-  List<MarginDifference> differencesFor(
-    MarginRiwayah riwayah,
-    List<Ayah> hafsVerses,
-  ) {
-    final targetReading = riwayah.toReading();
-    final results = <MarginDifference>[];
-
-    for (final hafs in hafsVerses) {
-      final variant = variantFor(riwayah, hafs);
-      if (variant == null) continue;
-
-      final diffs = publishedDifferences
-          .where(
-            (d) =>
-                d.targetReading == targetReading &&
-                d.baseSpan.ayahKey == hafs.key,
-          )
-          .toList(growable: false);
-
-      if (diffs.isNotEmpty) {
-        for (final diff in diffs) {
-          final wordIndices = [
-            for (
-              var i = diff.baseSpan.startWordIndex;
-              i <= diff.baseSpan.endWordIndex;
-              i++
-            )
-              i,
-          ];
-          results.add(
-            MarginDifference(
-              hafs: hafs,
-              variant: variant,
-              wordIndexes: wordIndices,
-              difference: diff,
-            ),
-          );
-        }
-      } else if (differenceWords[riwayah]?[hafs.key]?.isNotEmpty ?? false) {
-        // Fallback for legacy fixtures
-        results.add(
-          MarginDifference(
-            hafs: hafs,
-            variant: variant,
-            wordIndexes: differenceWords[riwayah]![hafs.key]!,
-          ),
-        );
-      }
-    }
-
-    return results;
-  }
-
-  Ayah? variantFor(MarginRiwayah riwayah, Ayah hafs) => switch (riwayah) {
-    MarginRiwayah.shubah => shubah[hafs.key],
-    MarginRiwayah.qalun => qalun[hafs.key],
-  };
-
-  bool hasDifference(MarginRiwayah riwayah, Ayah hafs) =>
-      hasPublishedDifference(riwayah, hafs) ||
-      (differenceWords[riwayah]?[hafs.key]?.isNotEmpty ?? false);
-
-  List<int> wordsFor(MarginRiwayah riwayah, Ayah hafs) =>
-      highlightedWordsFor(riwayah, hafs);
-
-  WordComparison comparedWord({
-    required Ayah hafs,
-    required Ayah variant,
-    required int wordIndex,
-  }) => LegacyDifferenceAdapter.comparedWord(
-    hafs: hafs,
-    variant: variant,
-    wordIndex: wordIndex,
-  );
-
-  WordComparison comparedDifference(ReadingDifference diff) =>
-      WordComparison.fromReadingDifference(diff);
 
   // ---------------------------------------------------------------------------
   // Loaders
@@ -500,6 +510,8 @@ class QuranRepository {
       MushafLayoutRepository.loadHafsMadani604(),
       rootBundle.loadString('assets/taisir_review_queue.json'),
       rootBundle.loadString('assets/mappings/hafs_to_qalun.json'),
+      rootBundle.loadString('assets/published_differences.json'),
+      rootBundle.loadString('assets/qiraat/variants.json'),
     ]);
 
     final manifest = MushafManifest.fromJson(
@@ -509,19 +521,32 @@ class QuranRepository {
     final shubah = _parseAyahs(files[2] as String);
     final qalun = _parseAyahs(files[3] as String);
 
-    final hafsByPage = <int, List<Ayah>>{};
-    for (final ayah in hafs) {
-      if (ayah.page != null) (hafsByPage[ayah.page!] ??= []).add(ayah);
-    }
-
     final shubahMap = {for (final ayah in shubah) ayah.key: ayah};
     final qalunMap = {for (final ayah in qalun) ayah.key: ayah};
     final hafsMap = {for (final ayah in hafs) ayah.key: ayah};
+    final layout = files[4] as MushafLayout;
+    final hafsByPage = <int, List<Ayah>>{};
+    final wordPageIndex = <String, int>{};
+    for (final page in layout.pages) {
+      final keys = <String>{};
+      for (final line in page.lines) {
+        for (final word in line.words) {
+          keys.add(word.location.split(':').take(2).join(':'));
+          wordPageIndex[word.location] = page.number;
+        }
+      }
+      hafsByPage[page.number] = [
+        for (final key in keys)
+          hafsMap[key] ??
+              (throw FormatException('Layout references missing ayah: $key')),
+      ];
+    }
 
     // The review queue holds source evidence but never asserts target Arabic spans.
     final candidateDifferences = _parseTaisirReviewQueue(
       files[5] as String,
       hafsMap: hafsMap,
+      wordPageIndex: wordPageIndex,
     );
     final ayahCorrespondences = _parseHafsToQalunMap(files[6] as String);
     final counterpartIndex = <String, List<ReadingAyahRef>>{};
@@ -541,19 +566,105 @@ class QuranRepository {
       }
     }
 
+    final published = parsePublishedDifferences(
+      files[7] as String,
+      hafsLayout: layout,
+      ayahs: {
+        QuranReading.hafs: hafsMap,
+        QuranReading.shubah: shubahMap,
+        QuranReading.qalun: qalunMap,
+      },
+    );
     return QuranRepository(
       manifest: manifest,
       hafsByPage: hafsByPage,
       shubah: shubahMap,
       qalun: qalunMap,
-      publishedDifferences: const [], // No bundled candidate data is published without scholarly review.
+      publishedDifferences: published,
       candidateDifferences: candidateDifferences,
       ayahCorrespondences: ayahCorrespondences,
       hafsByKey: hafsMap,
       ayahCounterpartIndex: counterpartIndex,
       ayahCorrespondenceIndex: correspondenceIndex,
-      hafsLayout: files[4] as MushafLayout,
-      differenceWords: const {}, // Legacy map remains empty in production.
+      qiraatVariants: QiraatVariants.parse(files[8] as String),
+      hafsLayout: layout,
+    );
+  }
+
+  static List<ReadingDifference> parsePublishedDifferences(
+    String source, {
+    required Map<QuranReading, Map<String, Ayah>> ayahs,
+    MushafLayout? hafsLayout,
+  }) {
+    final document = jsonDecode(source) as Map<String, dynamic>;
+    if (document['schema_version'] != '1.0.0') {
+      throw const FormatException('Unsupported published differences schema.');
+    }
+    final records = document['records'] as List<dynamic>;
+    if (records.isEmpty) return const [];
+    final ids = <String>{};
+    final layoutWords = <String, String>{
+      for (final page in hafsLayout?.pages ?? const <MushafLayoutPage>[])
+        for (final line in page.lines)
+          for (final word in line.words)
+            word.location: const ReadingAlignmentEngine()
+                .tokenize(word.text)
+                .map((token) => token.text)
+                .join(' '),
+    };
+    return List.unmodifiable(
+      records.map((raw) {
+        final difference = ReadingDifference.fromJson(
+          raw as Map<String, dynamic>,
+        );
+        if (!difference.isPublished || !ids.add(difference.id)) {
+          throw const FormatException(
+            'Published bundle contains unreviewed or duplicate records.',
+          );
+        }
+        for (final span in [difference.baseSpan, difference.targetSpan]) {
+          final ayah = ayahs[span.reading]?[span.ayahKey];
+          final tokens = ayah == null
+              ? const <ReadingToken>[]
+              : const ReadingAlignmentEngine().tokenize(ayah.comparisonText);
+          if (ayah == null ||
+              ((span.reading != QuranReading.hafs || hafsLayout == null) &&
+                  span.endWordIndex > tokens.length)) {
+            throw FormatException(
+              'Invalid published word span: ${difference.id}',
+            );
+          }
+          final expected =
+              span.reading == QuranReading.hafs && hafsLayout != null
+              ? [
+                  for (
+                    var word = span.startWordIndex;
+                    word <= span.endWordIndex;
+                    word++
+                  )
+                    layoutWords['${span.ayahKey}:$word'] ??
+                        (throw FormatException(
+                          'Missing published layout word: ${difference.id}',
+                        )),
+                ].join(' ')
+              : tokens
+                    .sublist(span.startWordIndex - 1, span.endWordIndex)
+                    .map((token) => token.text)
+                    .join(' ');
+          if (unicode.nfc(
+                const ReadingAlignmentEngine()
+                    .tokenize(span.text)
+                    .map((token) => token.text)
+                    .join(' '),
+              ) !=
+              unicode.nfc(expected)) {
+            throw FormatException(
+              'Published span text does not match its reading: ${difference.id}',
+            );
+          }
+        }
+        return difference;
+      }),
     );
   }
 
@@ -643,6 +754,7 @@ class QuranRepository {
   static List<CandidateDifferenceRecord> _parseTaisirReviewQueue(
     String source, {
     required Map<String, Ayah> hafsMap,
+    required Map<String, int> wordPageIndex,
   }) {
     final parsed = jsonDecode(source) as Map<String, dynamic>;
     if (parsed['schemaVersion'] != '1.0.0') {
@@ -683,6 +795,10 @@ class QuranRepository {
       if (wordIndex > hafsWordCount) {
         throw FormatException('Candidate word index is out of range: $id');
       }
+      final layoutPage = wordPageIndex['$surah:$ayah:$wordIndex'];
+      if (layoutPage == null) {
+        throw FormatException('Candidate references missing layout word: $id');
+      }
       list.add(
         CandidateDifferenceRecord(
           id: id,
@@ -690,7 +806,7 @@ class QuranRepository {
           sourceReading: reading,
           surah: surah,
           hafsAyah: ayah,
-          hafsPage: hafsMap['$surah:$ayah']?.page,
+          hafsPage: layoutPage,
           rawWordIndex: wordIndex,
           provenance: record['source'] as String? ?? 'ad-Dānī at-Taysīr',
           notes: 'موضع مرشح أولي غير محقق؛ لا يشمل محاذاة ولا تصنيف أداء.',
@@ -704,52 +820,108 @@ class QuranRepository {
     return list;
   }
 
-  static List<Ayah> _parseAyahs(String source, {bool isHafs = false}) =>
-      (jsonDecode(source) as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map((json) => Ayah.fromJson(json, isHafs: isHafs))
-          .toList(growable: false);
+  static List<Ayah> _parseAyahs(String source, {bool isHafs = false}) {
+    final ayahs = (jsonDecode(source) as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map((json) => Ayah.fromJson(json, isHafs: isHafs))
+        .toList(growable: false);
+    final keys = <String>{};
+    for (final ayah in ayahs) {
+      if (!keys.add(ayah.key) ||
+          ayah.surah < 1 ||
+          ayah.surah > 114 ||
+          ayah.number < 1 ||
+          ayah.text.trim().isEmpty ||
+          ayah.comparisonText.trim().isEmpty) {
+        throw const FormatException('Invalid or duplicate Quran ayah.');
+      }
+    }
+    return ayahs;
+  }
 }
 
-/// Legacy compatibility adapter.
-///
-/// Visibly isolated to avoid conflating raw whitespace token splitting with
-/// genuine scholarly difference alignment. Do not rely on this adapter for
-/// new production reading architectures.
-abstract final class LegacyDifferenceAdapter {
-  static WordComparison comparedWord({
-    required Ayah hafs,
-    required Ayah variant,
-    required int wordIndex,
-  }) {
-    final hafsWord = wordAt(hafs.comparisonText, wordIndex);
-    final variantWord = wordAt(variant.comparisonText, wordIndex);
-    return WordComparison(
-      hafs: hafsWord.isEmpty ? '—' : hafsWord,
-      variant: variantWord.isEmpty
-          ? 'وجه الرواية في الكلمة $wordIndex'
-          : variantWord,
-      isPerformanceOnly: readingKey(hafsWord) == readingKey(variantWord),
-    );
+class _RepositoryCache {
+  _RepositoryCache(this.repository);
+
+  final QuranRepository repository;
+  final alignments = <String, AyahAlignmentProposal>{};
+  late final wordPages = _wordPages();
+  late final candidatesByWord = _candidatesByWord();
+  late final candidatesByPage = _candidatesByPage();
+  late final publishedByWord = _publishedByWord();
+  late final hafsLayoutWords = _hafsLayoutWords();
+  late final hafsLayoutText = hafsLayoutWords.map(
+    (key, words) => MapEntry(key, words.map((word) => word.text).join(' ')),
+  );
+
+  Map<String, List<MushafLayoutWord>> _hafsLayoutWords() {
+    final words = <String, List<MushafLayoutWord>>{};
+    for (final page
+        in repository.hafsLayout?.pages ?? const <MushafLayoutPage>[]) {
+      for (final line in page.lines) {
+        for (final word in line.words) {
+          final key = word.location.substring(
+            0,
+            word.location.lastIndexOf(':'),
+          );
+          (words[key] ??= []).add(word);
+        }
+      }
+    }
+    return words;
   }
 
-  static String wordAt(String text, int index) {
-    final words = text
-        .replaceAll(RegExp(r'[٠-٩]'), '')
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .toList(growable: false);
-    return index > 0 && index <= words.length ? words[index - 1] : '';
+  Map<String, List<CandidateDifferenceRecord>> _candidatesByWord() {
+    final index = <String, List<CandidateDifferenceRecord>>{};
+    for (final candidate in repository.candidateDifferences) {
+      (index['${candidate.hafsAyahKey}:${candidate.rawWordIndex}'] ??= []).add(
+        candidate,
+      );
+    }
+    return index;
   }
 
-  static String readingKey(String text) => text
-      .replaceAll(
-        RegExp(r'[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]'),
-        '',
-      )
-      .replaceAll(RegExp(r'[ٱأإآ]'), 'ا')
-      .replaceAll('ى', 'ي')
-      .replaceAll('ـ', '')
-      .trim();
+  Map<String, Set<int>> _wordPages() {
+    final index = <String, Set<int>>{};
+    for (final page
+        in repository.hafsLayout?.pages ?? const <MushafLayoutPage>[]) {
+      for (final line in page.lines) {
+        for (final word in line.words) {
+          (index[word.location] ??= {}).add(page.number);
+        }
+      }
+    }
+    return index;
+  }
+
+  Map<int, List<CandidateDifferenceRecord>> _candidatesByPage() {
+    final index = <int, List<CandidateDifferenceRecord>>{};
+    for (final candidate in repository.candidateDifferences) {
+      for (final page
+          in wordPages['${candidate.hafsAyahKey}:${candidate.rawWordIndex}'] ??
+              const <int>{}) {
+        (index[page] ??= []).add(candidate);
+      }
+    }
+    return index;
+  }
+
+  Map<String, List<ReadingDifference>> _publishedByWord() {
+    final index = <String, List<ReadingDifference>>{};
+    for (final difference in repository.publishedDifferences) {
+      if (!difference.isPublished) continue;
+      for (final span in [difference.baseSpan, difference.targetSpan]) {
+        for (
+          var word = span.startWordIndex;
+          word <= span.endWordIndex;
+          word++
+        ) {
+          (index['${span.reading.name}:${span.ayahKey}:$word'] ??= []).add(
+            difference,
+          );
+        }
+      }
+    }
+    return index;
+  }
 }

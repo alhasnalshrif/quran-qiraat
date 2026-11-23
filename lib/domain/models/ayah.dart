@@ -6,6 +6,7 @@ class Ayah {
     required this.text,
     required this.comparisonText,
     this.surahName = '',
+    this.juz = 1,
     this.lineStart = 1,
     this.lineEnd = 1,
   });
@@ -16,6 +17,7 @@ class Ayah {
   final String text;
   final String comparisonText;
   final String surahName;
+  final int juz;
   final int lineStart;
   final int lineEnd;
 
@@ -30,6 +32,7 @@ class Ayah {
         comparisonText:
             (isHafs ? json['aya_text_emlaey'] : json['aya_text']) as String,
         surahName: '${json['sura_name_ar'] ?? ''}',
+        juz: int.tryParse('${json['jozz']}') ?? 1,
         lineStart: int.tryParse('${json['line_start']}') ?? 1,
         lineEnd: int.tryParse('${json['line_end']}') ?? 1,
       );

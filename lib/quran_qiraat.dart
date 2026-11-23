@@ -5,7 +5,6 @@ export 'domain/models/ayah.dart';
 export 'domain/models/ayah_correspondence.dart';
 export 'domain/models/alignment_review_record.dart';
 export 'domain/models/candidate_difference_record.dart';
-export 'domain/models/margin_difference.dart';
 export 'domain/models/margin_riwayah.dart';
 export 'domain/models/mushaf_edition.dart';
 export 'domain/models/mushaf_layout.dart';

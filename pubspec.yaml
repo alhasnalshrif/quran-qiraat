@@ -28,12 +28,17 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  audioplayers: ^6.4.0
+  cupertino_icons: ^2.0.0
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
 
   iconsax_flutter: ^1.0.1
   shared_preferences: ^2.5.5
   unorm_dart: ^0.3.2
+  wakelock_plus: ^1.8.2
 
 dev_dependencies:
   flutter_test:
@@ -53,13 +58,19 @@ dev_dependencies:
 flutter:
 
   assets:
+    - assets/fonts/OFL-AmiriQuran.txt
+    - assets/navigation/hafs_hizbs.json
+    - assets/navigation/LICENSE-QuranMeta.txt
     - assets/editions_manifest.json
+    - assets/published_differences.json
     - assets/quran_hafs.json
     - assets/quran_shubah.json
     - assets/quran_qalun.json
     - assets/taisir_review_queue.json
     - assets/mappings/hafs_to_qalun.json
     - assets/mappings/QIRAAT_AYAH_MAP_LICENSE.txt
+    - assets/qiraat/variants.json
+    - assets/qiraat/LICENSE-QuranTajweedEngine.txt
     - assets/mushaf/layout/hafs_madani_604.json
 
   fonts:
@@ -69,6 +80,9 @@ flutter:
     - family: HafsSmart
       fonts:
         - asset: assets/fonts/hafs_smart.ttf
+    - family: AmiriQuran
+      fonts:
+        - asset: assets/fonts/amiri_quran.ttf
     - family: Shubah
       fonts:
         - asset: assets/fonts/shubah.ttf

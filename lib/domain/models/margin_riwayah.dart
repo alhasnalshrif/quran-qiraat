@@ -21,6 +21,24 @@ extension QuranReadingData on QuranReading {
     QuranReading.qalun => 'Qalun',
   };
 
+  /// Hafs source glyphs use HafsSmart; layout and comparison text use Unicode.
+  String get unicodeFontFamily =>
+      this == QuranReading.hafs ? 'AmiriQuran' : fontFamily;
+
+  /// Riwayah slug used by the Quran Tajweed Engine farsh.
+  String get variantSlug => switch (this) {
+    QuranReading.hafs => 'hafs',
+    QuranReading.shubah => 'shubah',
+    QuranReading.qalun => 'qaloon',
+  };
+
+  static QuranReading? fromVariantSlug(String slug) {
+    for (final reading in QuranReading.values) {
+      if (reading.variantSlug == slug) return reading;
+    }
+    return null;
+  }
+
   MarginRiwayah? get differenceSource => switch (this) {
     QuranReading.hafs => null,
     QuranReading.shubah => MarginRiwayah.shubah,

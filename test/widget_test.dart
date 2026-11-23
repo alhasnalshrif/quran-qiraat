@@ -7,64 +7,14 @@ import 'package:quran_qiraat/quran_qiraat.dart';
 import 'package:quran_qiraat/features/reader/mushaf_reader_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'reader_test_controls.dart';
+
 void main() {
   test('allows page dragging with mouse and trackpad', () {
     const behavior = QuranScrollBehavior();
 
     expect(behavior.dragDevices, contains(PointerDeviceKind.mouse));
     expect(behavior.dragDevices, contains(PointerDeviceKind.trackpad));
-  });
-
-  test('shows imported difference locations in the margin', () {
-    const quran = QuranRepository(
-      hafsByPage: {},
-      shubah: {},
-      qalun: {},
-      differenceWords: {
-        MarginRiwayah.shubah: {
-          '2:255': [3],
-        },
-      },
-    );
-    const ayah = Ayah(
-      surah: 2,
-      number: 255,
-      page: 42,
-      text: 'test',
-      comparisonText: 'test',
-    );
-
-    expect(quran.hasDifference(MarginRiwayah.shubah, ayah), isTrue);
-    expect(quran.wordsFor(MarginRiwayah.shubah, ayah), [3]);
-    expect(quran.hasDifference(MarginRiwayah.qalun, ayah), isFalse);
-  });
-
-  test('labels the actual Hafs and margin-reading words', () {
-    const quran = QuranRepository(hafsByPage: {}, shubah: {}, qalun: {});
-    const hafs = Ayah(
-      surah: 20,
-      number: 10,
-      page: 312,
-      text: 'test',
-      comparisonText: 'إذ رأى نارا',
-    );
-    const shubah = Ayah(
-      surah: 20,
-      number: 10,
-      page: 312,
-      text: 'test',
-      comparisonText: 'إذ رٜءٜا نارا',
-    );
-
-    final result = quran.comparedWord(
-      hafs: hafs,
-      variant: shubah,
-      wordIndex: 2,
-    );
-
-    expect(result.hafs, 'رأى');
-    expect(result.variant, 'رٜءٜا');
-    expect(result.isPerformanceOnly, isFalse);
   });
 
   testWidgets('shows the offline Quran reader', (tester) async {
@@ -75,7 +25,23 @@ void main() {
       QuranQiraatApp(preferences: preferences, quran: quran),
     );
 
-    expect(find.text('مصحف القراءات'), findsOneWidget);
+    const controls = ValueKey('reader-bottom-chrome');
+    final toggle = find.text('أدوات القراءة');
+    expect(find.byKey(controls), findsNothing);
+    expect(toggle, findsNothing);
+    final readingBounds = tester.getRect(find.byType(PageView));
+    await tapReaderToToggleControls(tester);
+    expect(find.byKey(controls), findsOneWidget);
+    expect(tester.getRect(find.byType(PageView)), readingBounds);
+    expect(
+      tester.getRect(find.byKey(controls)).bottom,
+      lessThan(readingBounds.bottom),
+    );
+    expect(toggle, findsNothing);
+    await tapReaderToToggleControls(tester);
+    expect(find.byKey(controls), findsNothing);
+    expect(tester.getRect(find.byType(PageView)), readingBounds);
+    await tapReaderToToggleControls(tester);
     expect(find.text('القراءتان'), findsOneWidget);
     expect(find.text('حفص × شعبة'), findsOneWidget);
     expect(
@@ -143,13 +109,10 @@ void main() {
     expect(find.byKey(const ValueKey('mushaf-line-1-2')), findsOneWidget);
     expect(find.text('ٱلْحَمْدُ'), findsOneWidget);
 
-    await tester.tap(find.text('ٱلْحَمْدُ'));
+    await tester.longPress(find.text('ٱلْحَمْدُ'));
     await tester.pumpAndSettle();
     expect(find.text('موضع 1:2:1'), findsOneWidget);
-    expect(
-      find.text('لا توجد محاذاة فرق معتمدة لهذه الكلمة في البيانات الحالية.'),
-      findsOneWidget,
-    );
+    expect(find.text('لا يذكر الفرش خلافًا في هذه الكلمة.'), findsOneWidget);
   });
 
   testWidgets('keeps Mushaf line slots fixed while fitting long text', (
