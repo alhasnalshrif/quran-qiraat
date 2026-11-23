@@ -46,7 +46,7 @@ export function createApp({
 
   app.route(
     '/v1',
-    publicRoutes({ sql: db, signer, cdnBaseUrl, cache, now }),
+    publicRoutes({ sql: db, signer, cdnBaseUrl, cache, now, storage }),
   );
   app.route(
     '/admin/api',

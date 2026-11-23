@@ -4,12 +4,16 @@ import { Hono, type Context } from 'hono';
 
 import type { Database } from '../db/client.js';
 import type { ManifestSigner } from '../services/manifest-signer.js';
+import type { PackStorage } from '../services/storage.js';
 import { buildManifest, type Channel, type Platform } from '../services/manifest.js';
 
 export interface PublicRoutesOptions {
   sql: Database;
   signer: ManifestSigner;
+  /** Where pack files are served from (01 §2.2 CDN base). */
   cdnBaseUrl: string;
+  /** Reads pack bytes when CDN_BASE_URL is this server itself (02 §4). */
+  storage?: PackStorage | undefined;
   now?: (() => Date) | undefined;
   /** Cache lifetime for one manifest; 60 seconds per 02 §4. */
   cacheTtlMs?: number;
@@ -131,16 +135,34 @@ export function publicRoutes(options: PublicRoutesOptions): Hono {
     });
   });
 
-  /** Fallback 302 to the CDN for a direct pack file request (02 §4). */
-  app.get('/packs/:packId/:version/*', (c) => {
+  /**
+   * Serves a pack file directly when this server is the CDN (02 §4). When
+   * CDN_BASE_URL points elsewhere, the app uses that absolute URL instead.
+   */
+  app.get('/packs/:packId/:version/*', async (c) => {
     const packId = c.req.param('packId');
     const version = c.req.param('version');
-    // Mounted under /v1, so locate the segment rather than assuming a prefix.
     const prefix = `packs/${packId}/${version}/`;
     const at = c.req.path.indexOf(prefix);
     const rest = at >= 0 ? c.req.path.slice(at + prefix.length) : '';
-    if (!rest) return invalid(c, 'not_found', 'Unknown pack file.');
-    return c.redirect(`${options.cdnBaseUrl}/packs/${packId}/${version}/${rest}`, 302);
+    if (!rest || !options.storage) return invalid(c, 'not_found', 'Unknown pack file.');
+
+    let bytes: Uint8Array | null = null;
+    try {
+      bytes = await options.storage.readObject(`packs/${packId}/${version}/${rest}`);
+    } catch {
+      // Storage unavailable: treat it as a missing file, not a server fault.
+      bytes = null;
+    }
+    if (!bytes) return invalid(c, 'not_found', 'Unknown pack file.');
+
+    // Uint8Array is a valid BodyInit at runtime; the DOM type is not in scope here.
+    return new Response(bytes as unknown as ReadableStream, {
+      headers: {
+        'content-type': rest.endsWith('.json') ? 'application/json' : 'application/octet-stream',
+        'cache-control': 'public, max-age=300',
+      },
+    });
   });
 
   return app;

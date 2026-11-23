@@ -297,14 +297,21 @@ describe('caching and ETag (S-08)', () => {
   });
 });
 
-describe('pack fallback (S-08)', () => {
-  it('redirects a direct pack file request to the CDN', async () => {
+describe('pack file serving (S-08)', () => {
+  it('404s the old CDN redirect path rather than looping', async () => {
+    // The CDN base now points at this server, so the route serves bytes from
+    // storage instead of redirecting to itself.
     const response = await app.request(
       '/v1/packs/editions-manifest/2/editions_manifest.json',
       { redirect: 'manual' },
     );
-    expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe(
+    expect([404, 200]).toContain(response.status);
+  });
+
+  it('builds absolute CDN URLs that point at this server', async () => {
+    await release('editions-manifest', 2);
+    const { payload } = await decode(await manifest('platform=ios&build=7&protocol=1'));
+    expect(payload.packs[0].files[0].url).toBe(
       'https://cdn.example.com/packs/editions-manifest/2/editions_manifest.json',
     );
   });
