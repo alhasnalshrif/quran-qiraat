@@ -108,9 +108,36 @@ describe('rate limiting (02 §4)', () => {
     expect(local.size).toBe(1);
   });
 
-  it('reads the client address from the forwarded header', () => {
-    expect(clientKey({ header: (n) => (n === 'x-forwarded-for' ? '1.2.3.4, 5.6.7.8' : undefined) })).toBe('1.2.3.4');
+  it('prefers the Cloudflare client header, which a client cannot forge', () => {
+    const headers: Record<string, string> = {
+      'cf-connecting-ip': '5.5.5.5',
+      'x-forwarded-for': '1.2.3.4, 5.6.7.8',
+      'x-real-ip': '9.9.9.9',
+    };
+    expect(clientKey({ header: (n) => headers[n] })).toBe('5.5.5.5');
+  });
+
+  it('falls back to x-real-ip, then the closest forwarded hop', () => {
     expect(clientKey({ header: (n) => (n === 'x-real-ip' ? '9.9.9.9' : undefined) })).toBe('9.9.9.9');
+    // The right-most forwarded entry is our own proxy's, not the client's claim.
+    expect(clientKey({ header: (n) => (n === 'x-forwarded-for' ? '1.2.3.4, 5.6.7.8' : undefined) })).toBe('5.6.7.8');
+  });
+
+  it('never keys on the client-supplied left-most forwarded entry', () => {
+    // A forged, varying first entry must not create a fresh bucket each time.
+    const rotated = new RateLimiter(1, 60_000, () => 0);
+    for (let i = 0; i < 5; i++) {
+      const key = clientKey({
+        header: (n) =>
+          n === 'x-forwarded-for' ? `10.0.0.${i}, 5.6.7.8` : undefined,
+      });
+      rotated.consume(key);
+    }
+    // All five map to the same key, so the limiter counted one bucket.
+    expect(rotated.size).toBe(1);
+  });
+
+  it('returns a constant when no address header is present', () => {
     expect(clientKey({ header: () => undefined })).toBe('unknown');
   });
 });

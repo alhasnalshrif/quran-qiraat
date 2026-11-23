@@ -72,10 +72,32 @@ export class RateLimiter {
  * first forwarded address; a missing header falls back to a constant so a
  * direct client cannot dodge the limiter by omitting it.
  */
+/**
+ * The client address for rate limiting.
+ *
+ * Behind Cloudflare and Traefik there are several hops, and the left-most
+ * entry in X-Forwarded-For is whatever the client claimed — easy to forge and
+ * easy to vary per request, which would give a fresh bucket every time and
+ * defeat the limit. `CF-Connecting-IP` is set by Cloudflare and is the real
+ * client, so it wins; then X-Real-IP from the proxy; then the right-most
+ * forwarded entry (the closest hop we can trust); then a constant.
+ */
 export function clientKey(req: {
   header: (name: string) => string | undefined;
 }): string {
-  const forwarded = req.header('x-forwarded-for')?.split(',')[0]?.trim();
+  const cf = req.header('cf-connecting-ip')?.trim();
+  if (cf) return cf;
+
   const real = req.header('x-real-ip')?.trim();
-  return forwarded || real || 'unknown';
+  if (real) return real;
+
+  const forwarded = req.header('x-forwarded-for');
+  if (forwarded) {
+    const parts = forwarded.split(',').map((part) => part.trim()).filter(Boolean);
+    // The right-most hop is the one added by our own proxy.
+    const closest = parts[parts.length - 1];
+    if (closest) return closest;
+  }
+
+  return 'unknown';
 }

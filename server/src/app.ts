@@ -11,7 +11,7 @@ import { ManifestCache, publicRoutes } from './routes/public.js';
 import type { ManifestSigner } from './services/manifest-signer.js';
 import type { OneSignal } from './services/onesignal.js';
 import type { PackStorage } from './services/storage.js';
-import type { RateLimiter } from './middleware/rate-limit.js';
+import { RateLimiter } from './middleware/rate-limit.js';
 
 export interface AppDependencies {
   db: Database;
@@ -42,13 +42,17 @@ export function createApp({
 }: AppDependencies): Hono {
   const app = new Hono();
   const cache = manifestCache ?? new ManifestCache();
+  // One limiter for both mounts: publicRoutes is mounted twice (the /v1 API
+  // and the root pack path), and separate instances would each keep half the
+  // count, letting a client exceed the documented 60/minute.
+  const limiter = rateLimiter ?? new RateLimiter();
 
   app.get('/healthz', async (c) => {
     const healthy = await databaseIsHealthy(db);
     return c.json({ ok: healthy }, healthy ? 200 : 503);
   });
 
-  const publicConfig = { sql: db, signer, cdnBaseUrl, cache, now, storage, rateLimiter };
+  const publicConfig = { sql: db, signer, cdnBaseUrl, cache, now, storage, rateLimiter: limiter };
   app.route('/v1', publicRoutes(publicConfig));
   // Pack files are requested at /packs/... by the absolute CDN URL inside the
   // manifest, so a second instance serves that path at the root as well.
