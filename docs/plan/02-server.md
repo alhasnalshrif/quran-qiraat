@@ -28,6 +28,7 @@ quran/
 │   │   ├── services/manifest.ts بناء البيان وتوقيعه
 │   │   ├── services/storage.ts  S3/R2
 │   │   ├── services/auth.ts     الجلسات وكلمات المرور
+│   │   ├── services/onesignal.ts إرسال وإلغاء الإشعارات (D18)
 │   │   └── middleware/          أخطاء، rate limit، auth، logging
 │   ├── drizzle/                 ملفات الترحيل (drizzle-kit)
 │   ├── test/
@@ -65,6 +66,8 @@ quran/
 | `SESSION_SECRET` | نعم | 32 بايت عشوائية base64 | توقيع كوكي الجلسة |
 | `ADMIN_ORIGIN` | نعم | `https://api.example.com` | لفحص CSRF |
 | `LOG_LEVEL` | لا | `info` | |
+| `ONESIGNAL_APP_ID_STABLE`، `ONESIGNAL_APP_ID_BETA` | نعم | | تطبيق OneSignal لكل قناة (D18) |
+| `ONESIGNAL_REST_API_KEY_STABLE`، `ONESIGNAL_REST_API_KEY_BETA` | نعم | | مفاتيح سرية، على السيرفر فقط |
 
 ملف `server/.env.example` بالقيم الوهمية يُرفع، و`.env` الحقيقي لا يُرفع أبدًا (يُضاف لـ `.gitignore`).
 
@@ -138,6 +141,22 @@ quran/
 ### `admin_sessions`
 `id` (رمز عشوائي 32 بايت، يُخزَّن hash له فقط)، `user_id`، `expires_at` (14 يوم)، `created_ip_hash`.
 
+### `notifications`
+| العمود | النوع | قيود |
+|---|---|---|
+| `id` | uuid | PK |
+| `channel` | enum | `stable` أو `beta` (لا إشعارات لـ internal) |
+| `title_ar`، `body_ar` | text | not null، العنوان ≤ 60 حرفًا والنص ≤ 180 |
+| `link` | text | رابط داخلي من قائمة 03 §12 فقط، أو null |
+| `target_platforms` | text[] | فرعية من `ios`، `android` |
+| `target_min_build`، `target_max_build` | integer أو null | تُترجم لفلاتر وسم `build` |
+| `scheduled_at` | timestamptz أو null | null = فورًا |
+| `status` | enum | `draft`، `scheduled`، `sent`، `failed`، `cancelled` |
+| `onesignal_id` | text | معرّف الإرسال من OneSignal |
+| `recipients` | integer | العدد الذي يعيده OneSignal |
+| `error` | text | |
+| `created_by` | uuid | FK |
+
 ### `audit_log`
 `id`، `user_id`، `action` (مثل `pack_version.publish`)، `target` (text)، `details` (jsonb)، `at`.
 
@@ -147,6 +166,7 @@ quran/
 
 كما في العقد §2 بالضبط. تفاصيل التنفيذ:
 
+- `services/onesignal.ts` يغلّف OneSignal REST API (إرسال، إلغاء)، ويختار مفتاح القناة. لا يُستدعى إلا من طرق الإشعارات.
 - `services/manifest.ts` يبني البيان من: `channel_releases` + `pack_files` + `app_platforms` + `remote_config` + `announcements` الفعّالة الآن، ثم يوقّعه.
 - `packs` في البيان: لكل حزمة، أكبر إصدار حالته `published` في هذه القناة و`min_app_build ≤ build`.
 - `revoked` في البيان: كل الإصدارات بحالة `revoked` للحزم التي يقرؤها هذا البناء (بغض النظر عن القناة).
@@ -178,6 +198,11 @@ quran/
 | GET/POST/PUT/DELETE | `/config` | owner | |
 | GET/POST/PUT/DELETE | `/announcements` | editor | |
 | GET | `/audit` | owner | بترقيم صفحات |
+| GET | `/notifications` | editor | السجل مع الحالة وعدد المستلمين |
+| POST | `/notifications` | editor | إنشاء مسودة. يُتحقق من `link` مقابل قائمة 03 §12 |
+| POST | `/notifications/:id/test` | editor | إرسال لجهاز اختبار واحد (معرّف اشتراك OneSignal يُدخل يدويًا، لا يُحفظ) |
+| POST | `/notifications/:id/send` | owner لـ stable، editor لـ beta | إرسال فوري أو جدولة عبر OneSignal REST (`POST /notifications` بـ `filters` على وسوم `channel` و`platform` و`build`، و`data.link`). النتيجة تُحفظ في الجدول |
+| POST | `/notifications/:id/cancel` | editor | إلغاء المجدول في OneSignal وقبل وقته فقط |
 | GET/POST/PUT | `/users` | owner | إضافة editor، تعطيل حساب |
 
 أول حساب `owner` يُنشأ بأمر CLI: `pnpm --filter server create-owner --email …` (يطلب كلمة المرور تفاعليًا). لا يوجد تسجيل ذاتي.
@@ -200,6 +225,7 @@ quran/
 | الإعدادات البعيدة | `/config` | `Table` قابل للتعديل، القيمة بنوع المفتاح | المفاتيح من `packages/contracts` فقط |
 | الإعلانات | `/announcements` | `Form` + معاينة بشكل بطاقة التطبيق + `DatePicker.RangePicker` | |
 | المستخدمون | `/users` | `Table` | owner فقط |
+| الإشعارات | `/notifications` | `Table` للسجل، و`Form` للإنشاء: عنوان ونص بعدّاد أحرف، `Select` للرابط الداخلي (صفحة/آية/التحديثات/إعلان) مع حقوله، المنصات، نطاق البناء، `DatePicker` للجدولة، ومعاينة بشكل إشعار الهاتف | إرسال تجريبي ثم إرسال مع `Popconfirm` يذكر القناة والجمهور |
 | سجل التدقيق | `/audit` | `Table` بفلاتر | owner فقط |
 
 اللوحة تُبنى ملفات ثابتة ويخدمها نفس سيرفر Hono على `/admin` (بلا CORS، نفس الأصل).
@@ -219,7 +245,7 @@ node tool/publish_pack.mjs --pack qiraat-farsh --server https://api.example.com 
 | المستوى | الأداة | ما يُغطّى |
 |---|---|---|
 | contracts | Vitest | كل مدقق صيغة بحالات صحيحة وخاطئة؛ تطابق مخطط البيان مع مثال العقد |
-| server | Vitest + PostgreSQL حقيقي (خدمة في CI) + MinIO | بناء البيان لكل حالة في العقد §2 (ترشيح بـ build، السحب، القنوات، انتهاء الصلاحية)، التوقيع والتحقق منه، كل طريق في §5 مع الصلاحيات وCSRF |
+| server | Vitest + PostgreSQL حقيقي (خدمة في CI) + MinIO + OneSignal وهمي (خادم HTTP محلي يسجل الطلبات) | بناء البيان لكل حالة في العقد §2 (ترشيح بـ build، السحب، القنوات، انتهاء الصلاحية)، التوقيع والتحقق منه، كل طريق في §5 مع الصلاحيات وCSRF |
 | admin | Vitest + Testing Library | النماذج الأساسية، وتدفق رفع إصدار |
 | تكامل | سكربت | سيرفر محلي + نشر حزمة + تطبيق Flutter في اختبار يقرأ البيان وينزّل ويتحقق (مهمة A-09) |
 
@@ -232,4 +258,4 @@ node tool/publish_pack.mjs --pack qiraat-farsh --server https://api.example.com 
 
 ## 10. ما ليس في هذه المرحلة
 
-حسابات للمستخدمين، مزامنة العلامات بين الأجهزة، إحصاءات استخدام، إشعارات push. أي منها يحتاج قرارًا جديدًا في سجل القرارات وقسمًا هنا قبل البدء.
+حسابات للمستخدمين، مزامنة العلامات بين الأجهزة، إحصاءات استخدام. (الإشعارات صارت ضمن الخطة عبر OneSignal، D18.) أي منها يحتاج قرارًا جديدًا في سجل القرارات وقسمًا هنا قبل البدء.
