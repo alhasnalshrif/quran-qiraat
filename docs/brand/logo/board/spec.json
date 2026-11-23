@@ -1,0 +1,27 @@
+{
+  "brand": "مصحف القراءات",
+  "tagline": "قراءة واحدة للنص، وروايات متعددة في الهامش",
+  "brief": "تطبيق مصحف يعمل دون اتصال، يعرض رواية حفص ويقارن فروق القراءات العشر في الهامش. الهوية حديثة وبسيطة، وفيها روح المصحف وتذهيبه.",
+  "adjectives": ["أصيل", "هادئ", "دقيق", "حديث"],
+  "criteria": "واضح على 16px، يعمل بلون واحد، مختلف عن الأهلّة والقباب المعتادة.",
+  "mockups": ["app-icon", "favicon-tab", "social", "website", "business-card", "sticker"],
+  "nav": ["المصحف", "القراءات", "التحميل"],
+  "brand_color": "#285D4F",
+  "greyscale": false,
+  "final": true,
+  "concepts": [
+    {
+      "name": "زخرفة الهامش",
+      "symbol": "../symbol.svg",
+      "lockup": "../lockup-horizontal.svg",
+      "stacked": "../lockup-stacked.svg",
+      "avatar": "../app-icon-rounded.svg",
+      "symbol_on_tile": "../symbol-on-dark.svg",
+      "lockup_on_dark": "../lockup-horizontal-on-dark.svg",
+      "tile_color": "#285D4F",
+      "idea": "صفحة مصحف على حافتها زخرفة الهامش الذهبية، حيث تُكتب فروق القراءات.",
+      "rationale": ["تشير إلى لوحة الفروق في التطبيق نفسه", "الذهبي من تذهيب المصاحف، والأخضر من ثيم التطبيق", "نسخة مبسطة للمقاسات الصغيرة بلا أسطر ولا نجمة"]
+    }
+  ],
+  "recommendation": "الاتجاه النهائي المعتمد."
+}
