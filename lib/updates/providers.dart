@@ -90,6 +90,7 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
   final store = await ref.watch(packStoreFutureProvider.future);
   final client = ManifestClient(
     dio: ref.watch(dioProvider),
+    baseUrl: updateServerBaseUrl,
     channel: preferences.getString('update_channel') ?? 'stable',
   );
   return UpdateService(

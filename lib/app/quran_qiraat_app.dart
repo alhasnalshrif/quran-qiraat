@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_repository.dart';
 import '../features/reader/mushaf_reader_page.dart';
+import '../updates/update_check_runner.dart';
 import 'quran_theme.dart';
 
 class QuranQiraatApp extends StatefulWidget {
@@ -36,10 +37,12 @@ class _QuranQiraatAppState extends State<QuranQiraatApp> {
     darkTheme: quranTheme(night: true),
     themeMode: _appearance,
     themeAnimationDuration: Duration.zero,
-    home: MushafReaderPage(
-      preferences: widget.preferences,
-      quran: widget.quran,
-      onAppearanceChanged: (mode) => setState(() => _appearance = mode),
+    home: UpdateCheckRunner(
+      child: MushafReaderPage(
+        preferences: widget.preferences,
+        quran: widget.quran,
+        onAppearanceChanged: (mode) => setState(() => _appearance = mode),
+      ),
     ),
   );
 }

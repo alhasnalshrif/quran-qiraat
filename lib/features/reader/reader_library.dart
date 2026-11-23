@@ -5,6 +5,7 @@ import '../../app/quran_theme.dart';
 import '../../data/quran_repository.dart';
 import '../../domain/models/ayah.dart';
 import '../../domain/models/margin_riwayah.dart';
+import '../updates/updates_page.dart';
 import 'reading_text_comparison_page.dart';
 import 'page_input.dart';
 import 'reader_library_store.dart';
@@ -358,6 +359,10 @@ class _ReaderLibraryPageState extends State<ReaderLibraryPage> {
             tooltip: 'المصادر والنسخ الاحتياطي',
             onSelected: (action) {
               switch (action) {
+                case 'updates':
+                  Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const UpdatesPage()),
+                  );
                 case 'sources':
                   Navigator.of(context).push<void>(
                     MaterialPageRoute(
@@ -372,6 +377,10 @@ class _ReaderLibraryPageState extends State<ReaderLibraryPage> {
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'updates',
+                child: Text('التحديثات والمصادر'),
+              ),
               PopupMenuItem(
                 value: 'sources',
                 child: Text('المصادر وحالة المراجعة'),

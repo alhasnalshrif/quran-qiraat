@@ -115,12 +115,20 @@ class DioErrorTransformInterceptor extends Interceptor {
   }
 }
 
+/// Where the update server lives (01 §2.1).
+///
+/// Every request is built from this, so tests override the provider rather
+/// than patching strings at call sites.
+const String updateServerBaseUrl = 'https://quran.alhasnalshrif.com';
+
 Dio createDioClient({
   String userAgent = 'QuranQiraat/1.0.0+1',
+  String baseUrl = updateServerBaseUrl,
   Future<void> Function(Duration)? sleep,
 }) {
   final dio = Dio(
     BaseOptions(
+      baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
       headers: {'User-Agent': userAgent},

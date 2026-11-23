@@ -9,5 +9,6 @@
 library;
 
 const Map<String, String> trustedKeys = {
-  // 'k1': '<base64 public key>',
+  // Production key on quran.alhasnalshrif.com.
+  'k1': 'mNTooVV/b0+ANw3HaBQuQD39pPdNSsrQ07j8SoT4xvU=',
 };
