@@ -25,8 +25,16 @@ backup() {
   aws --endpoint-url "$S3_ENDPOINT" s3 cp "$file" "s3://$S3_BUCKET/backups/$(basename "$file")"
   rm -f "$file"
 
-  # Keep 30 days: list, sort, delete anything older than the cutoff.
-  cutoff="$(date -u -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-30d +%Y-%m-%d)"
+  # Keep 30 days. ISO dates sort lexically, so the cutoff is a plain string
+  # comparison; compute "today - 30 days" from the epoch without GNU date.
+  cutoff="$(date -u -d "@$(( $(date -u +%s) - 30 * 86400 ))" +%Y-%m-%d 2>/dev/null \
+    || date -u -r "$(( $(date -u +%s) - 30 * 86400 ))" +%Y-%m-%d 2>/dev/null \
+    || echo "")"
+  if [ -z "$cutoff" ]; then
+    echo "Cannot compute a 30-day cutoff with this date; skipping pruning."
+    return 0
+  fi
+
   echo "Pruning backups older than $cutoff"
   aws --endpoint-url "$S3_ENDPOINT" s3 ls "s3://$S3_BUCKET/backups/" \
     | awk '{print $1, $4}' \
