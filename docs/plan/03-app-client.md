@@ -6,7 +6,9 @@
 
 | الحزمة | السبب |
 |---|---|
-| `http` | طلب البيان وتنزيل الملفات |
+| `flutter_riverpod` | إدارة الحالة (D16) |
+| `dio` | طلب البيان وتنزيل الملفات مع التقدم والإلغاء (D17) |
+| `onesignal_flutter` | الإشعارات (D18) |
 | `crypto` | sha256 |
 | `cryptography` | التحقق من توقيع Ed25519 (يعمل على كل المنصات بما فيها الويب) |
 | `path_provider` | مجلد دعم التطبيق لحفظ الحزم |
@@ -25,11 +27,17 @@ lib/
 │   ├── pack_validators.dart   مدقق لكل صيغة (نفس قواعد 01 §1.2)
 │   ├── data_source.dart       QuranDataSource: يعطي بايتات أي ملف حزمة من المفعّل أو المضمّن
 │   ├── update_service.dart    ينسّق كل ما سبق، ويُشغَّل عند الفتح
+│   ├── providers.dart         كل Providers طبقة التحديثات (§10)
+│   └── network.dart           dioProvider والـinterceptors (§11)
 │   └── remote_config.dart     قراءة المفاتيح بأنواعها وافتراضياتها (01 §4)
 ├── features/updates/
 │   ├── updates_page.dart      شاشة «التحديثات والمصادر»
-│   ├── force_update_page.dart
-│   └── announcement_banner.dart
+│   ├── update_sheets.dart     شيتات التحديث الثلاثة (§6)
+│   └── announcement_sheet.dart
+├── notifications/
+│   ├── notifications_service.dart  تهيئة OneSignal والإذن والوسوم وفتح الروابط (§12)
+│   └── notification_consent_sheet.dart
+├── app/deep_links.dart        تحليل الروابط الداخلية quranqiraat://…
 assets/packs_bundled.json      إصدارات الحزم المضمّنة (01 §1.3)
 ```
 
@@ -88,12 +96,18 @@ abstract interface class QuranDataSource {
 - أي استثناء في أي خطوة يُلتقط، يُسجَّل في `state.json` (`lastError`)، ولا يصل للمستخدم إلا في شاشة التحديثات.
 - إعادة تحميل البيانات: `QuranBootstrap` يعيد إنشاء الجلسة (`loadQuranSession`) بنفس المصدر، ويحتفظ بموضع القراءة الحالي.
 
-## 6. سياسة النسخة والإعلانات
+## 6. شيتات التحديث والإعلانات (D19)
 
-- `build < app.minSupportedBuild`: `ForceUpdatePage` تغطي التطبيق كله، فيها رسالة `app.message` وزر يفتح `storeUrl`. على الويب: زر «إعادة التحميل».
-- `build < app.latestBuild` فقط: شريط صغير قابل للإغلاق مرة لكل `latestBuild`.
-- الإعلانات: `AnnouncementBanner` فوق الصفحة عند ظهور أدوات القراءة فقط، إعلان واحد في المرة (الأعلى أولوية ثم الأحدث)، ويُحفظ معرّفه بعد الإغلاق في `SharedPreferences` (`dismissed_announcements`) فلا يتكرر. يحترم `features.announcements`.
-- لا يُعرض إعلان أو تحديث فوق نافذة مفتوحة (شيت المقارنة مثلًا).
+كلها `showModalBottomSheet` بنفس شكل `QuranGlassSheet` الحالي، وعربية RTL. لا يظهر شيت فوق شيت أو نافذة مفتوحة: تُؤجَّل حتى تُغلق. شيت واحد في المرة، بالأولوية: إجباري ← بيانات جاهزة ← نسخة اختيارية ← إعلان.
+
+| الشيت | متى | المحتوى | الإغلاق |
+|---|---|---|---|
+| **التحديث الإجباري** | `build < app.minSupportedBuild` | العنوان «يلزم تحديث التطبيق»، رسالة `app.message`، زر «فتح المتجر» (`storeUrl`)؛ على الويب «إعادة التحميل» | `isDismissible: false`، `enableDrag: false`، وزر الرجوع في Android لا يغلقه (`PopScope(canPop: false)`). يعود عند كل فتح حتى يُحدَّث |
+| **نسخة جديدة اختيارية** | `build < app.latestBuild` | رسالة `app.message`، «تحديث» و«لاحقًا» | قابل للإغلاق. لا يعود لنفس `latestBuild` (يُحفظ `dismissed_latest_build`) |
+| **تحديث بيانات جاهز** | اكتمل تنزيل حزمة أو أكثر (03 §5 خطوة 10) | اسم كل حزمة وملاحظاتها `notes.ar`، «تطبيق الآن» و«عند الفتح التالي» | قابل للإغلاق؛ الإغلاق = عند الفتح التالي (D8) |
+| **إعلان** | إعلان فعّال لم يُغلق | العنوان والنص وزر الرابط إن وُجد | قابل للإغلاق، ويُحفظ معرّفه في `dismissed_announcements` فلا يتكرر. يحترم `features.announcements` |
+
+الشيتات لا تظهر فوق صفحة المصحف أثناء التمرير بين الصفحات: تُعرض عند توقف المستخدم (أول ظهور لأدوات القراءة أو بعد 3 ثوانٍ بلا تمرير).
 
 ## 7. شاشة «التحديثات والمصادر»
 
@@ -119,5 +133,57 @@ abstract interface class QuranDataSource {
 | `PackStore` | مجلد مؤقت: تنزيل، sha256 خاطئ، مدقق يفشل، تفعيل، سحب، الرجوع للسابق، بقاء إصدارين فقط، `state.json` بعد انقطاع في منتصف الكتابة |
 | `QuranDataSource` | الرجوع للمضمّن لكل حزمة غير مفعّلة؛ حزمة تالفة تُعطَّل ويُعاد التحميل |
 | `UpdateService` | `http` وهمي: 304، خطأ شبكة، Wi-Fi فقط، فحص يدوي مقابل تلقائي، احترام `checkIntervalHours` |
-| الواجهة | شاشة التحديث الإجباري، الشريط، الإعلان لا يتكرر بعد الإغلاق، شاشة المصادر |
+| الواجهة | الشيتات الأربعة وأولويتها؛ الإجباري لا يُغلق بالسحب ولا بزر الرجوع؛ الاختياري والإعلان لا يتكرران؛ شاشة المصادر |
+| Riverpod | كل Provider في §10 يُختبر بـ `ProviderContainer` وoverrides لـ `dioProvider` و`packStoreProvider` |
+| الإشعارات | الموافقة لا تُطلب قبل الشرط في §12؛ الرفض يُحفظ ولا يُعاد السؤال قبل 30 يومًا؛ كل رابط في §12 يفتح وجهته؛ رابط غير معروف يُتجاهل |
 | بلا انحدار | كل الاختبارات الحالية (92) تمر مع `BundledDataSource` دون تعديل منطقها |
+
+## 10. Riverpod (D16)
+
+- `main.dart` يلف التطبيق بـ `ProviderScope`. `SharedPreferences` و`QuranRepository` يُقدَّمان كـ overrides بعد التحميل في `QuranBootstrap`.
+- Providers طبقة التحديثات في `lib/updates/providers.dart`:
+
+| Provider | النوع | يعطي |
+|---|---|---|
+| `dioProvider` | `Provider<Dio>` | نسخة Dio الوحيدة (§11) |
+| `packStoreProvider` | `Provider<PackStore>` | |
+| `dataSourceProvider` | `Provider<QuranDataSource>` | `PackedDataSource` على الأجهزة، `BundledDataSource` على الويب |
+| `manifestProvider` | `AsyncNotifierProvider<ManifestNotifier, Manifest?>` | آخر بيان صالح، و`check({manual})` |
+| `remoteConfigProvider` | `Provider<RemoteConfig>` | من البيان أو الافتراضيات |
+| `appPolicyProvider` | `Provider<AppPolicy>` | إجباري/اختياري/لا شيء |
+| `pendingPacksProvider` | `NotifierProvider<…, List<PackRelease>>` | حزم نُزّلت ولم تُفعَّل |
+| `updateSheetQueueProvider` | `NotifierProvider<…, UpdateSheet?>` | الشيت التالي حسب الأولوية في §6 |
+| `quranRepositoryProvider` | `AsyncNotifierProvider<…, QuranRepository>` | يُعاد تحميله عند «تطبيق الآن» |
+
+- الواجهة تقرأ بـ `ref.watch` فقط. لا `setState` لحالة مشتركة في الكود الجديد.
+- الاختبارات تستخدم `ProviderContainer(overrides: …)` بدل الشبكة والقرص الحقيقيين.
+
+## 11. Dio (D17)
+
+- `BaseOptions`: `connectTimeout` 10 ثوانٍ، `receiveTimeout` 30 ثانية للبيان و5 دقائق للملفات، `responseType` حسب الطلب، وترويسة `User-Agent: QuranQiraat/<version>+<build>` فقط.
+- Interceptors بالترتيب: (1) إعادة المحاولة مرتين بفاصل 2 ثم 6 ثوانٍ لأخطاء الشبكة و5xx فقط، (2) تحويل الأخطاء إلى `UpdateError` بأنواع ثابتة (`offline`، `server`، `invalid`)، (3) سجل في وضع debug فقط.
+- التنزيل: `dio.download` إلى `.incoming` مع `CancelToken` لكل حزمة، وتقدم يظهر في شاشة التحديثات. الإلغاء يحذف الملف الجزئي.
+- `If-None-Match` يُضاف يدويًا لطلب البيان، و`validateStatus` يقبل 304.
+
+## 12. الإشعارات: OneSignal (D18)
+
+**التهيئة:** `OneSignal.initialize(<appId>)` عند الفتح، دون طلب إذن. `appId` ثابت غير سري في `lib/notifications/onesignal_config.dart` لكل قناة بناء.
+
+**طلب الإذن:** لا يُطلب في أول فتح. يُعرض `notification_consent_sheet` (شرح: ماذا سيصل ولماذا، وأنه يمكن الإيقاف) بعد الجلسة الثالثة أو عند تفعيل الورد اليومي (L-02)، أيهما أسبق. «موافق» يستدعي `OneSignal.Notifications.requestPermission(true)`. «ليس الآن» يُحفظ ولا يُعاد قبل 30 يومًا. خيار في الإعدادات «الإشعارات» يشغّل ويوقف (`OneSignal.User.pushSubscription.optIn/optOut`).
+
+**الوسوم:** فقط `channel`، `platform`، `build`، `lang` (D18). تُحدَّث عند كل فتح. لا `OneSignal.login` ولا أي معرّف خارجي.
+
+**فتح الإشعار:** كل إشعار يحمل في `additionalData` حقل `link` برابط داخلي. `deep_links.dart` يحلله:
+
+| الرابط | يفتح |
+|---|---|
+| `quranqiraat://page/<1-604>` | الصفحة في القارئ |
+| `quranqiraat://ayah/<surah>/<ayah>` | الآية (بترقيم حفص) |
+| `quranqiraat://updates` | شاشة التحديثات، ويبدأ فحصًا يدويًا |
+| `quranqiraat://announcement/<id>` | شيت الإعلان |
+
+رابط غير معروف أو غير صالح يُتجاهل ويفتح التطبيق عاديًا.
+
+**الويب:** OneSignal Web SDK غير مستخدم في المرحلة الأولى؛ الويب بلا إشعارات.
+
+**الإعداد المطلوب منك (N-01):** حساب OneSignal، تطبيق فيه، مفتاح APNs (.p8) من حساب Apple Developer، وملف Firebase (FCM) لأندرويد. التطبيق يحتاج Capability «Push Notifications» و«Background Modes: Remote notifications» في iOS، وNotification Service Extension لصور الإشعارات.
