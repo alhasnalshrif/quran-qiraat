@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { createDatabase, type Database } from '../src/db/client.js';
 import { hashPassword } from '../src/services/auth.js';
+import { OneSignal } from '../src/services/onesignal.js';
 import { PackStorage, sha256Hex } from '../src/services/storage.js';
 import { startFakeS3, type FakeS3 } from './helpers/fake-s3.js';
 import { runMigrations } from './helpers/migrate.js';
@@ -18,6 +19,13 @@ const databaseUrl =
 let db: Database;
 let s3: FakeS3;
 let app: ReturnType<typeof createApp>;
+const onesignal = new OneSignal({
+  appIdStable: 's',
+  appIdBeta: 'b',
+  keyStable: 'ks',
+  keyBeta: 'kb',
+  baseUrl: 'http://127.0.0.1:9',
+});
 let ownerToken: string;
 let editorToken: string;
 let ownerCsrf: string;
@@ -55,6 +63,7 @@ beforeAll(async () => {
       accessKeyId: 'test-key',
       secretAccessKey: 'test-secret',
     }),
+    onesignal,
     secureCookies: false,
   });
 

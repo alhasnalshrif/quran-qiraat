@@ -4,6 +4,7 @@ import { createApp } from '../src/app.js';
 import { createDatabase, type Database } from '../src/db/client.js';
 import { runMigrations } from './helpers/migrate.js';
 import { hashPassword } from '../src/services/auth.js';
+import { OneSignal } from '../src/services/onesignal.js';
 import { PackStorage } from '../src/services/storage.js';
 
 /**
@@ -15,6 +16,13 @@ const databaseUrl =
 
 let db: Database;
 let app: ReturnType<typeof createApp>;
+const onesignal = new OneSignal({
+  appIdStable: 's',
+  appIdBeta: 'b',
+  keyStable: 'ks',
+  keyBeta: 'kb',
+  baseUrl: 'http://127.0.0.1:9',
+});
 const storage = PackStorage.fromConfig({
   endpoint: 'http://127.0.0.1:9',
   region: 'auto',
@@ -47,7 +55,7 @@ beforeAll(async () => {
   ownerId = owner!.id;
   editorId = editor!.id;
 
-  app = createApp({ db, storage, secureCookies: false, now: () => now });
+  app = createApp({ db, storage, onesignal, secureCookies: false, now: () => now });
 }, 30000);
 
 afterAll(async () => {

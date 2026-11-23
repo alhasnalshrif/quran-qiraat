@@ -1,5 +1,5 @@
 {
-  "id": "b97d59b5-2a80-4351-bbbf-0e935d2c1831",
+  "id": "cf6d5eaf-e575-4049-b255-ec81dd795a05",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -977,6 +977,13 @@
       "name": "remote_config",
       "schema": "",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
         "key": {
           "name": "key",
           "type": "text",
@@ -1030,20 +1037,31 @@
           "default": "now()"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "remote_config_key_channel_platform_min_build_max_build_pk": {
-          "name": "remote_config_key_channel_platform_min_build_max_build_pk",
+      "indexes": {
+        "remote_config_key_idx": {
+          "name": "remote_config_key_idx",
           "columns": [
-            "key",
-            "channel",
-            "platform",
-            "min_build",
-            "max_build"
-          ]
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

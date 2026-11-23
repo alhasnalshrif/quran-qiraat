@@ -124,6 +124,7 @@ CREATE TABLE "packs" (
 );
 --> statement-breakpoint
 CREATE TABLE "remote_config" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"key" text NOT NULL,
 	"channel" "channel" NOT NULL,
 	"platform" "platform",
@@ -131,8 +132,7 @@ CREATE TABLE "remote_config" (
 	"max_build" integer,
 	"value" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "remote_config_key_channel_platform_min_build_max_build_pk" PRIMARY KEY("key","channel","platform","min_build","max_build")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "admin_sessions" ADD CONSTRAINT "admin_sessions_user_id_admin_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."admin_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -151,4 +151,5 @@ CREATE INDEX "channel_releases_pack_version_idx" ON "channel_releases" USING btr
 CREATE INDEX "notifications_channel_idx" ON "notifications" USING btree ("channel");--> statement-breakpoint
 CREATE INDEX "notifications_status_idx" ON "notifications" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "pack_versions_pack_version_unique" ON "pack_versions" USING btree ("pack_id","version");--> statement-breakpoint
-CREATE INDEX "pack_versions_pack_id_idx" ON "pack_versions" USING btree ("pack_id");
+CREATE INDEX "pack_versions_pack_id_idx" ON "pack_versions" USING btree ("pack_id");--> statement-breakpoint
+CREATE INDEX "remote_config_key_idx" ON "remote_config" USING btree ("key","channel");

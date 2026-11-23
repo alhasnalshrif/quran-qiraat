@@ -143,6 +143,8 @@ export const appPlatforms = pgTable('app_platforms', {
 export const remoteConfig = pgTable(
   'remote_config',
   {
+    /** Surrogate key: the lookup columns are nullable, so they cannot be a PK. */
+    id: uuid('id').primaryKey().defaultRandom(),
     key: text('key').notNull(),
     channel: channelEnum('channel').notNull(),
     platform: platformEnum('platform'),
@@ -152,9 +154,7 @@ export const remoteConfig = pgTable(
     ...timestamps,
   },
   (table) => ({
-    pk: primaryKey({
-      columns: [table.key, table.channel, table.platform, table.minBuild, table.maxBuild],
-    }),
+    keyIndex: index('remote_config_key_idx').on(table.key, table.channel),
   }),
 );
 

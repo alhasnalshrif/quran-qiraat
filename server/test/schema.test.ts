@@ -86,6 +86,14 @@ describe('drizzle schema (S-04)', () => {
     expect(adminUsers.role.default).toBe('editor');
   });
 
+  it('remote config scope columns are nullable, as 02 §3 requires', () => {
+    expect(remoteConfig.platform.notNull).toBe(false);
+    expect(remoteConfig.minBuild.notNull).toBe(false);
+    expect(remoteConfig.maxBuild.notNull).toBe(false);
+    expect(remoteConfig.key.notNull).toBe(true);
+    expect(remoteConfig.value.notNull).toBe(true);
+  });
+
   it('target_platforms is an array column', () => {
     expect(notifications.targetPlatforms.columnType).toBe('PgArray');
     expect(notifications.targetPlatforms.default).toEqual([]);
