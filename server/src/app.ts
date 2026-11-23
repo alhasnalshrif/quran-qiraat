@@ -1,3 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { dirname, extname, join, normalize, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { Hono } from 'hono';
 
 import type { Database } from './db/client.js';
@@ -49,5 +53,50 @@ export function createApp({
     adminRouter({ db, storage, onesignal, secureCookies, now, manifestCache: cache }),
   );
 
+  /**
+   * Serves the built dashboard on /admin, same origin so there is no CORS and
+   * the session cookie simply works (02 §6). Unknown paths fall back to the
+   * SPA entry point so client-side routes survive a refresh.
+   */
+  const adminRoot =
+    process.env.ADMIN_DIST ??
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../admin/dist');
+
+  app.get('/admin', (c) => c.redirect('/admin/'));
+  app.get('/admin/*', async (c) => {
+    const relative = c.req.path.replace(/^\/admin\/?/, '') || 'index.html';
+    const target = normalize(join(adminRoot, relative));
+
+    // Never serve a path outside the admin build directory.
+    if (!target.startsWith(adminRoot)) return c.notFound();
+
+    try {
+      const body = await readFile(target);
+      return new Response(body, { headers: { 'content-type': contentType(target) } });
+    } catch {
+      const body = await readFile(join(adminRoot, 'index.html'));
+      return new Response(body, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+    }
+  });
+
   return app;
+}
+
+function contentType(path: string): string {
+  switch (extname(path)) {
+    case '.js':
+      return 'text/javascript; charset=utf-8';
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.png':
+      return 'image/png';
+    case '.woff2':
+      return 'font/woff2';
+    case '.json':
+      return 'application/json';
+    default:
+      return 'text/html; charset=utf-8';
+  }
 }
