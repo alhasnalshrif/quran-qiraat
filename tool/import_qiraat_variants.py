@@ -19,6 +19,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import unicodedata
 from pathlib import Path
 
@@ -202,12 +203,8 @@ def build(engine):
     return output, placed, unplaced, inconsistent
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("engine", type=Path, help="Quran Tajweed Engine checkout")
-    parser.add_argument("--check", action="store_true", help="fail if the asset differs")
-    args = parser.parse_args()
-    output, placed, unplaced, inconsistent = build(args.engine)
+def process_engine(engine_path: Path, check: bool):
+    output, placed, unplaced, inconsistent = build(engine_path)
     text = json.dumps(output, ensure_ascii=False, separators=(",", ":")) + "\n"
     print(
         f"{len(output['junctures'])} junctures, {placed} segments placed on layout "
@@ -216,14 +213,54 @@ def main():
     print(f"{len(inconsistent)} junctures whose span disagrees with their Hafs reading:")
     for item in inconsistent:
         print(f"  {item}")
-    if args.check:
+    if check:
+        if not OUTPUT.exists():
+            sys.exit(f"{OUTPUT} does not exist")
         if OUTPUT.read_text(encoding="utf-8") != text:
             sys.exit(f"{OUTPUT} is out of date")
+        print("OK: assets/qiraat/variants.json matches engine source.")
         return
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(text, encoding="utf-8")
     license_file = OUTPUT.parent / "LICENSE-QuranTajweedEngine.txt"
-    license_file.write_text((args.engine / "LICENSE").read_text(encoding="utf-8"), encoding="utf-8")
+    license_file.write_text((engine_path / "LICENSE").read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("engine", type=Path, nargs="?", help="Quran Tajweed Engine checkout")
+    parser.add_argument("--check", action="store_true", help="fail if the asset differs")
+    args = parser.parse_args()
+
+    if args.engine:
+        process_engine(args.engine, args.check)
+        return
+
+    if not OUTPUT.exists():
+        sys.exit(f"No engine checkout provided and {OUTPUT} does not exist to read pinned revision")
+
+    with open(OUTPUT, "r", encoding="utf-8") as f:
+        current_data = json.load(f)
+    revision = current_data.get("revision")
+    source_url = current_data.get("source", SOURCE)
+
+    with tempfile.TemporaryDirectory() as td:
+        engine_dir = Path(td)
+        try:
+            subprocess.run(["git", "clone", "--depth", "1", source_url, str(engine_dir)], check=True)
+            head_rev = subprocess.run(
+                ["git", "-C", str(engine_dir), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if revision and head_rev != revision:
+                subprocess.run(["git", "-C", str(engine_dir), "fetch", "--depth", "1", "origin", revision], check=True)
+                subprocess.run(["git", "-C", str(engine_dir), "checkout", revision], check=True)
+        except subprocess.CalledProcessError:
+            subprocess.run(["git", "clone", source_url, str(engine_dir)], check=True)
+            if revision:
+                subprocess.run(["git", "-C", str(engine_dir), "checkout", revision], check=True)
+        process_engine(engine_dir, args.check)
 
 
 if __name__ == "__main__":
