@@ -43,7 +43,7 @@ quran/
 ├── tool/publish_pack.mjs        CLI لرفع حزمة من المصدر (§7)
 └── deploy/
     ├── docker-compose.yml       الإنتاج: server + postgres + caddy
-    ├── docker-compose.dev.yml   التطوير: postgres + minio
+    ├── docker-compose.dev.yml   التطوير: postgres فقط (التخزين على R2)
     └── Caddyfile
 ```
 
@@ -59,7 +59,7 @@ quran/
 | `PORT` | لا | `8787` | |
 | `PUBLIC_BASE_URL` | نعم | `https://api.example.com` | |
 | `CDN_BASE_URL` | نعم | `https://cdn.example.com` | بادئة روابط ملفات الحزم في البيان |
-| `S3_ENDPOINT`، `S3_REGION`، `S3_BUCKET`، `S3_ACCESS_KEY_ID`، `S3_SECRET_ACCESS_KEY` | نعم | | تخزين الحزم (D4) |
+| `S3_ENDPOINT`، `S3_REGION`، `S3_BUCKET`، `S3_ACCESS_KEY_ID`، `S3_SECRET_ACCESS_KEY` | نعم | | تخزين الحزم على Cloudflare R2 (D4): `S3_ENDPOINT` مثل `https://<account-id>.r2.cloudflarestorage.com`، و`S3_REGION` = `auto` |
 | `MANIFEST_SIGNING_KEY` | نعم | base64 لمفتاح Ed25519 خاص (32 بايت seed) | D7 |
 | `MANIFEST_KEY_ID` | نعم | `k1` | |
 | `MANIFEST_TTL_DAYS` | لا | `7` | لحساب `expiresAt` (≤ 7) |
@@ -245,7 +245,7 @@ node tool/publish_pack.mjs --pack qiraat-farsh --server https://api.example.com 
 | المستوى | الأداة | ما يُغطّى |
 |---|---|---|
 | contracts | Vitest | كل مدقق صيغة بحالات صحيحة وخاطئة؛ تطابق مخطط البيان مع مثال العقد |
-| server | Vitest + PostgreSQL حقيقي (من `deploy/docker-compose.dev.yml` محليًا) + MinIO + OneSignal وهمي (خادم HTTP محلي يسجل الطلبات) | بناء البيان لكل حالة في العقد §2 (ترشيح بـ build، السحب، القنوات، انتهاء الصلاحية)، التوقيع والتحقق منه، كل طريق في §5 مع الصلاحيات وCSRF |
+| server | Vitest + PostgreSQL حقيقي (من `deploy/docker-compose.dev.yml` محليًا) + مخدّم S3 وهمي داخل العملية (لا MinIO، D4) + OneSignal وهمي (خادم HTTP محلي يسجل الطلبات) | بناء البيان لكل حالة في العقد §2 (ترشيح بـ build، السحب، القنوات، انتهاء الصلاحية)، التوقيع والتحقق منه، كل طريق في §5 مع الصلاحيات وCSRF |
 | admin | Vitest + Testing Library | النماذج الأساسية، وتدفق رفع إصدار |
 | تكامل | سكربت | سيرفر محلي + نشر حزمة + تطبيق Flutter في اختبار يقرأ البيان وينزّل ويتحقق (مهمة A-09) |
 
