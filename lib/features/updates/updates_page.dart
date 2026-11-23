@@ -5,6 +5,7 @@ import '../../app/quran_theme.dart';
 import '../../updates/data_source.dart';
 import '../../updates/protocol.dart';
 import '../../updates/providers.dart';
+import '../../updates/update_check_runner.dart';
 import '../../updates/update_service.dart';
 import '../about/about_page.dart';
 
@@ -26,17 +27,10 @@ class _UpdatesPageState extends ConsumerState<UpdatesPage> {
     final outcome = await ref.read(manifestProvider.notifier).check(manual: true);
     if (!mounted) return;
     setState(() => _busy = false);
-    final message = switch (outcome) {
-      CheckOutcome.notModified => 'البيان محدّث.',
-      CheckOutcome.upToDate => 'لا توجد تحديثات.',
-      CheckOutcome.updated => 'نُزّلت تحديثات، وهي جاهزة للتطبيق.',
-      CheckOutcome.rejected => 'البيان الموقّع غير صالح، ولم يُستخدم.',
-      CheckOutcome.skipped => 'لا اتصال، أو التنزيل عبر Wi-Fi فقط.',
-      null => null,
-    };
-    if (message != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    }
+    // One source of truth for the wording, shared with the startup runner.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(describeOutcome(outcome))),
+    );
   }
 
   Future<void> _applyNow(UpdateService service) async {

@@ -13,21 +13,6 @@ import 'pack_store.dart';
 import 'protocol.dart';
 import 'remote_config.dart';
 
-/// The last check, for the updates screen (03 §7).
-class UpdateStatus {
-  const UpdateStatus({
-    required this.checkedAt,
-    this.error,
-    this.notModified = false,
-    this.downloaded = const [],
-  });
-
-  final DateTime checkedAt;
-  final String? error;
-  final bool notModified;
-  final List<String> downloaded;
-}
-
 /// What a check decided to do.
 enum CheckOutcome {
   /// The stored manifest is still current (304).
@@ -118,16 +103,6 @@ class UpdateService {
     final last = lastCheck;
     if (last == null) return true;
     return clock().difference(last) >= config.checkInterval;
-  }
-
-  /// The outcome of the last check, for the updates screen.
-  UpdateStatus? get status {
-    final checked = lastCheck;
-    if (checked == null) return null;
-    return UpdateStatus(
-      checkedAt: checked,
-      notModified: preferences.getBool('${_etagKey}_not_modified') ?? false,
-    );
   }
 
   /// Runs the whole sequence of 03 §5. Returns [CheckOutcome.skipped] when

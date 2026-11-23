@@ -47,6 +47,27 @@ export function createApp({
   // count, letting a client exceed the documented 60/minute.
   const limiter = rateLimiter ?? new RateLimiter();
 
+  /**
+   * Every failure answers in the contract's shape (01 §2.3) instead of Hono's
+   * default HTML page. The message is intentionally generic: internals never
+   * reach a client.
+   */
+  app.onError((error, c) => {
+    console.error(`unhandled error on ${c.req.method} ${c.req.path}:`, error);
+    // A response that already started writing cannot be replaced.
+    if (c.res && c.res.headers.get('content-type')?.includes('application/json')) {
+      return c.res;
+    }
+    return c.json(
+      { error: { code: 'internal', message: 'An internal error occurred.' } },
+      500,
+    );
+  });
+
+  app.notFound((c) =>
+    c.json({ error: { code: 'not_found', message: 'No such route.' } }, 404),
+  );
+
   app.get('/healthz', async (c) => {
     const healthy = await databaseIsHealthy(db);
     return c.json({ ok: healthy }, healthy ? 200 : 503);
