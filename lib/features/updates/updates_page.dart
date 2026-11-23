@@ -6,6 +6,7 @@ import '../../updates/data_source.dart';
 import '../../updates/protocol.dart';
 import '../../updates/providers.dart';
 import '../../updates/update_service.dart';
+import '../about/about_page.dart';
 
 /// "التحديثات والمصادر" (03 §7): per-pack versions, the last check, the
 /// Wi-Fi-only option, the channel picker and the return-to-bundled action.
@@ -167,6 +168,17 @@ class _UpdatesPageState extends ConsumerState<UpdatesPage> {
                   title: const Text('النسخة'),
                   subtitle: Text(
                     '${service.appBuild} · ${_channelLabel(service.channel)}',
+                  ),
+                ),
+                const SizedBox(height: QuranDesign.section),
+                ListTile(
+                  key: const ValueKey('about-page'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('حول التطبيق والمصادر'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(builder: (_) => const AboutPage()),
                   ),
                 ),
                 const SizedBox(height: QuranDesign.section),
