@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, extname, join, normalize, resolve } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Hono } from 'hono';
@@ -72,8 +72,12 @@ export function createApp({
     const relative = c.req.path.replace(/^\/admin\/?/, '') || 'index.html';
     const target = normalize(join(adminRoot, relative));
 
-    // Never serve a path outside the admin build directory.
-    if (!target.startsWith(adminRoot)) return c.notFound();
+    // Never serve a path outside the admin build directory. The separator
+    // matters: a plain prefix check would also allow a sibling such as
+    // `dist-secret`, since it starts with the same characters.
+    if (target !== adminRoot && !target.startsWith(adminRoot + sep)) {
+      return c.notFound();
+    }
 
     try {
       const body = await readFile(target);
