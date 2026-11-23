@@ -308,6 +308,21 @@ describe('pack file serving (S-08)', () => {
     expect([404, 200]).toContain(response.status);
   });
 
+  it('serves a pack file at the absolute URL the manifest advertises', async () => {
+    // Regression: the CDN URL is /packs/... with no /v1 prefix, so the route
+    // must be reachable at the root or every download 404s.
+    await release('editions-manifest', 2);
+    const { payload } = await decode(await manifest('platform=ios&build=7&protocol=1'));
+    const url = new URL(payload.packs[0].files[0].url);
+
+    const response = await app.request(`${url.pathname}`);
+    // Storage is unreachable in this test, so a 404 here still proves routing
+    // reaches the handler rather than 404ing on an unknown path.
+    expect([200, 404]).toContain(response.status);
+    const body = await response.text();
+    expect(body).not.toContain('Not Found');
+  });
+
   it('builds absolute CDN URLs that point at this server', async () => {
     await release('editions-manifest', 2);
     const { payload } = await decode(await manifest('platform=ios&build=7&protocol=1'));

@@ -44,10 +44,11 @@ export function createApp({
     return c.json({ ok: healthy }, healthy ? 200 : 503);
   });
 
-  app.route(
-    '/v1',
-    publicRoutes({ sql: db, signer, cdnBaseUrl, cache, now, storage }),
-  );
+  const publicConfig = { sql: db, signer, cdnBaseUrl, cache, now, storage };
+  app.route('/v1', publicRoutes(publicConfig));
+  // Pack files are requested at /packs/... by the absolute CDN URL inside the
+  // manifest, so a second instance serves that path at the root as well.
+  app.route('/', publicRoutes(publicConfig));
   app.route(
     '/admin/api',
     adminRouter({ db, storage, onesignal, secureCookies, now, manifestCache: cache }),
