@@ -1,0 +1,14 @@
+{
+  "protocol": 1,
+  "packs": {
+    "editions-manifest": 1,
+    "hafs-text": 1,
+    "riwayah-shubah-text": 1,
+    "riwayah-qalun-text": 1,
+    "hafs-layout-1405": 1,
+    "mapping-hafs-qalun": 1,
+    "qiraat-farsh": 1,
+    "published-differences": 1,
+    "navigation-hizbs": 1
+  }
+}

@@ -67,6 +67,7 @@ flutter:
 
   assets:
     - assets/fonts/OFL-AmiriQuran.txt
+    - assets/packs_bundled.json
     - assets/navigation/hafs_hizbs.json
     - assets/navigation/LICENSE-QuranMeta.txt
     - assets/editions_manifest.json
