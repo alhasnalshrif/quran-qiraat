@@ -112,6 +112,7 @@ class _MushafMargin extends StatelessWidget {
   final bool aligned;
 
   static const _textComparison = '__text_comparison__';
+  static const _openPicker = '__all_riwayat__';
 
   ValueKey<String> get marginKey =>
       ValueKey('mushaf-margin-${page.number}-$riwayah');
@@ -195,7 +196,20 @@ class _MushafMargin extends StatelessWidget {
     final textTarget = QuranReadingData.fromVariantSlug(riwayah);
     return PopupMenuButton<String>(
       tooltip: 'اختر رواية الهامش',
-      onSelected: (value) {
+      onSelected: (value) async {
+        if (value == _openPicker && variants != null) {
+          // Grouped by imam, with search (R-07).
+          final picked = await showModalBottomSheet<String>(
+            context: context,
+            useSafeArea: true,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) =>
+                RiwayahPickerSheet(variants: variants, selected: riwayah),
+          );
+          if (picked != null) onRiwayahChanged(picked);
+          return;
+        }
         if (value != _textComparison) {
           onRiwayahChanged(value);
           return;
@@ -212,23 +226,16 @@ class _MushafMargin extends StatelessWidget {
         );
       },
       itemBuilder: (_) => [
-        if (textTarget != null && textTarget != QuranReading.hafs) ...[
-          const PopupMenuItem(
+        if (textTarget != null && textTarget != QuranReading.hafs)
+          PopupMenuItem(
             value: _textComparison,
-            child: Text('المقارنة النصية'),
+            child: const Text('المقارنة النصية'),
           ),
-          const PopupMenuDivider(),
-        ],
         if (variants != null)
-          for (final transmitter in variants.riwayat)
-            if (transmitter.riwayah != QiraatVariants.hafs)
-              CheckedPopupMenuItem(
-                value: transmitter.riwayah,
-                checked: transmitter.riwayah == riwayah,
-                child: Text(
-                  '${transmitter.name} · ${variants.readers[transmitter.reader]?.name ?? ''}',
-                ),
-              ),
+          PopupMenuItem(
+            value: _openPicker,
+            child: const Text('كل الروايات…'),
+          ),
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),

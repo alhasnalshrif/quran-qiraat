@@ -135,7 +135,10 @@ void main() {
     await tapReaderToToggleControls(tester);
     await tester.tap(find.byTooltip('اختر رواية الهامش'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ورش · نافع'));
+    // The picker now groups by imam behind a search sheet (R-07).
+    await tester.tap(find.text('كل الروايات…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('riwayah-warsh')));
     await tester.pumpAndSettle();
     expect(preferences.getString('margin_riwayah'), 'warsh');
     expect(find.byKey(const ValueKey('mushaf-margin-1-warsh')), findsOneWidget);
@@ -281,12 +284,9 @@ void main() {
       await tapReaderToToggleControls(tester);
       await tester.tap(find.byTooltip('اختر رواية الهامش'));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.ancestor(
-          of: find.text('قالون · نافع'),
-          matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
-        ),
-      );
+      await tester.tap(find.text('كل الروايات…'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('riwayah-qaloon')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('mushaf-margin-3-qaloon')),

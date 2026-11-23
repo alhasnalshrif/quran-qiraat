@@ -21,6 +21,7 @@ import 'page_input.dart';
 import 'reader_library.dart';
 import 'reading_text_comparison_page.dart';
 import 'hafs_ayah_audio.dart';
+import 'riwayah_picker.dart';
 
 part 'reviewed_difference_card.dart';
 part 'reader_controls.dart';
