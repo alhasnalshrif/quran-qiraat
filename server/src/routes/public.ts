@@ -5,6 +5,8 @@ import { Hono, type Context } from 'hono';
 import type { Database } from '../db/client.js';
 import type { ManifestSigner } from '../services/manifest-signer.js';
 import type { PackStorage } from '../services/storage.js';
+import { RateLimiter, clientKey } from '../middleware/rate-limit.js';
+import { dailyIpHash } from '../services/auth.js';
 import { buildManifest, type Channel, type Platform } from '../services/manifest.js';
 
 export interface PublicRoutesOptions {
@@ -19,6 +21,8 @@ export interface PublicRoutesOptions {
   cacheTtlMs?: number;
   /** Shared cache so a publish can clear it (02 §4). */
   cache?: ManifestCache | undefined;
+  /** 60 requests per minute per IP on /v1 (02 §4). */
+  rateLimiter?: RateLimiter | undefined;
 }
 
 const channels: Channel[] = ['stable', 'beta', 'internal'];
@@ -79,6 +83,23 @@ export class ManifestCache {
 export function publicRoutes(options: PublicRoutesOptions): Hono {
   const app = new Hono();
   const cache = options.cache ?? new ManifestCache(options.cacheTtlMs, options.now);
+  const limiter = options.rateLimiter ?? new RateLimiter();
+
+  // 02 §4: limit every /v1 request by a daily-rotating IP hash, never the IP.
+  // Only the API paths are limited; the pack-file route is a plain download
+  // and the admin API has its own auth, so neither shares this budget.
+  app.use('/manifest', async (c, next) => {
+    const key = dailyIpHash(clientKey(c.req), options.now ? options.now() : new Date());
+    const result = limiter.consume(key);
+    if (!result.allowed) {
+      return c.json(
+        { error: { code: 'rate_limited', message: 'Too many requests; slow down.' } },
+        429,
+        { 'retry-after': String(result.retryAfter) },
+      );
+    }
+    await next();
+  });
 
   app.get('/manifest', async (c) => {
     const platform = c.req.query('platform');

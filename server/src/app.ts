@@ -11,6 +11,7 @@ import { ManifestCache, publicRoutes } from './routes/public.js';
 import type { ManifestSigner } from './services/manifest-signer.js';
 import type { OneSignal } from './services/onesignal.js';
 import type { PackStorage } from './services/storage.js';
+import type { RateLimiter } from './middleware/rate-limit.js';
 
 export interface AppDependencies {
   db: Database;
@@ -20,6 +21,8 @@ export interface AppDependencies {
   cdnBaseUrl: string;
   /** Shared so a publish clears the manifest cache (02 §4). */
   manifestCache?: ManifestCache | undefined;
+  /** Shared limit state for /v1 (02 §4). */
+  rateLimiter?: RateLimiter | undefined;
   /** Cookie Secure flag; false only for local HTTP development. */
   secureCookies?: boolean;
   now?: (() => Date) | undefined;
@@ -33,6 +36,7 @@ export function createApp({
   signer,
   cdnBaseUrl,
   manifestCache,
+  rateLimiter,
   secureCookies = true,
   now,
 }: AppDependencies): Hono {
@@ -44,7 +48,7 @@ export function createApp({
     return c.json({ ok: healthy }, healthy ? 200 : 503);
   });
 
-  const publicConfig = { sql: db, signer, cdnBaseUrl, cache, now, storage };
+  const publicConfig = { sql: db, signer, cdnBaseUrl, cache, now, storage, rateLimiter };
   app.route('/v1', publicRoutes(publicConfig));
   // Pack files are requested at /packs/... by the absolute CDN URL inside the
   // manifest, so a second instance serves that path at the root as well.

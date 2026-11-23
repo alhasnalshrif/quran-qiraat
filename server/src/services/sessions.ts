@@ -82,4 +82,16 @@ export class SessionStore {
   async pruneExpired(now: Date = new Date()): Promise<void> {
     await this.sql`delete from admin_sessions where expires_at <= ${now.toISOString()}::timestamptz`;
   }
+
+  /**
+   * The session IP hash is kept for rate-limit forensics only and is cleared
+   * after 7 days (02 §4), well before the session itself would expire.
+   */
+  async pruneIpHashes(now: Date = new Date()): Promise<void> {
+    const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    await this.sql`
+      update admin_sessions set created_ip_hash = null
+      where created_ip_hash is not null and created_at <= ${cutoff.toISOString()}::timestamptz
+    `;
+  }
 }

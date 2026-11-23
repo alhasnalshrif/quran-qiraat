@@ -53,6 +53,7 @@ export function authRoutes(
     }
 
     await sessions.pruneExpired(now());
+    await sessions.pruneIpHashes(now());
 
     const rows = await sql<UserRow[]>`
       select id, email, password_hash, role, disabled, failed_login_count, locked_until
