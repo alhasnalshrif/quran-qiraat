@@ -57,7 +57,7 @@
 
 | # | المهمة | المرجع | يعتمد على | شرط الانتهاء |
 |---|---|---|---|---|
-| A-01 | إضافة الحزم في 03 §1 (منها `flutter_riverpod` و`dio` و`onesignal_flutter`) | 03 §1 | C-01 | `flutter analyze` و`flutter test` يمران، والتطبيق يُبنى لـ iOS وAndroid |
+| A-01 | ~~إضافة الحزم في 03 §1~~ **تمت (2026-11-23)**: أضيفت الحزم مع توافق النسخ، واجتازت الاختبارات وبناء Android وiOS | 03 §1 | C-01 | `flutter analyze` و`flutter test` يمران، والتطبيق يُبنى لـ iOS وAndroid |
 | A-11 | Riverpod: `ProviderScope` في `main.dart`، وoverrides لـ `SharedPreferences` و`QuranRepository` من `QuranBootstrap`، و`dioProvider` بإعدادات وinterceptors 03 §11 | 03 §10–§11، D16، D17 | A-01 | التطبيق يعمل كما هو؛ اختبار لـ `dioProvider`: إعادة المحاولة مرتين على 503 وعدم إعادتها على 400 |
 | A-02 | `lib/updates/protocol.dart` و`remote_config.dart`: أنواع العقد ومفاتيحه | 01 §2، §4 | A-01, S-02 | اختبار يحلل مثال البيان في 01 §2.2 (نفس الملف الذي يختبره S-02) |
 | A-03 | `assets/packs_bundled.json` بالإصدار 1 لكل حزمة في 01 §1.1 | 01 §1.3 | A-01 | ملف موجود ومسجّل في `pubspec.yaml`، واختبار يتأكد أن كل حزمة في الجدول لها `bundledPath` موجود |
