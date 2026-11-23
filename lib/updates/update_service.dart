@@ -233,9 +233,14 @@ class UpdateService {
   bool get requiresUpdate => build < (manifest?.app.minSupportedBuild ?? 0);
 
   /// Whether a newer store build exists and was not dismissed.
+  ///
+  /// A forced update already covers this case: offering "later" on top of it
+  /// would be contradictory, so the optional sheet never follows a forced one
+  /// (03 §6 priority order).
   bool get hasOptionalUpdate {
     final current = manifest;
     if (current == null) return false;
+    if (requiresUpdate) return false;
     final dismissed = preferences.getInt(_dismissedBuildKey) ?? 0;
     return build < current.app.latestBuild && current.app.latestBuild > dismissed;
   }
