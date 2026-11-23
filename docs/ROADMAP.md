@@ -40,7 +40,7 @@
 
 | # | المهمة | المرجع | يعتمد على | شرط الانتهاء |
 |---|---|---|---|---|
-| S-01 | هيكل الـworkspace: `pnpm-workspace.yaml`، `server/`، `admin/`، `packages/contracts/`، TypeScript strict، ESLint، Prettier، سكربتات الجذر | 02 §1 | C-01 | `pnpm install && pnpm -r build && pnpm -r test` تعمل على مشروع فارغ |
+| S-01 | ~~هيكل الـworkspace~~ **تمت (2026-11-23)**: `pnpm-workspace.yaml` (server، admin، packages/*)، TypeScript strict موحّد، ESLint 9 flat config، Prettier، وسكربتات الجذر lint/typecheck/build/test. `tool/verify.sh` يشغّل `pnpm -r lint/typecheck/test` | 02 §1 | C-01 | `pnpm install && pnpm -r build && pnpm -r test` تعمل على مشروع فارغ |
 | S-02 | `packages/contracts`: مخطط zod للبيان (01 §2) ومفاتيح الإعدادات (01 §4) ومدقق لكل صيغة في 01 §1.2 | 01 كله | S-01 | اختبار يقرأ مثال البيان في 01 §2.2 ويقبله؛ كل مدقق يقبل الملف المضمّن الحالي ويرفض نسخة مكسورة منه |
 | S-03 | `docker-compose.dev.yml` (Postgres 16 + MinIO)، `env.ts`، `.env.example` | 02 §2، §9 | S-01 | `pnpm --filter server dev` يعمل على قاعدة فارغة؛ نقص متغير يوقف التشغيل برسالة واضحة |
 | S-04 | مخطط Drizzle لكل جداول 02 §3 والترحيل الأول | 02 §3 | S-03 | `db:migrate` على قاعدة فارغة ينشئ الجداول بقيودها |

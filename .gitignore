@@ -51,3 +51,13 @@ app.*.map.json
 *.jks
 *.keystore
 /test/failures/
+
+# Node / pnpm workspaces
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+/server/.env
+/dist/
+/admin/dist/
+/server/dist/
+/packages/*/dist/
