@@ -11,12 +11,15 @@
     "lint": "eslint .",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file-if-exists=.env --import tsx src/db/migrate.ts"
+    "db:migrate": "node --env-file-if-exists=.env --import tsx src/db/migrate.ts",
+    "create-owner": "node --env-file-if-exists=.env --import tsx src/create-owner.ts",
+    "test:db": "node --env-file-if-exists=.env --import tsx --test-reporter=spec node_modules/vitest/vitest.mjs run test/auth.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1175.0",
     "@aws-sdk/s3-request-presigner": "^3.1175.0",
     "@hono/node-server": "^2.1.11",
+    "@node-rs/argon2": "^2.2.2",
     "@quran/contracts": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.20",

@@ -63,6 +63,8 @@ export const adminUsers = pgTable(
     role: adminRoleEnum('role').notNull().default('editor'),
     disabled: boolean('disabled').notNull().default(false),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    failedLoginCount: integer('failed_login_count').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
     ...timestamps,
   },
   (table) => ({
@@ -186,6 +188,8 @@ export const adminSessions = pgTable(
       .references(() => adminUsers.id, { onDelete: 'cascade' }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdIpHash: text('created_ip_hash'),
+    /** Per-session CSRF token; the browser echoes it back on writes (02 §5). */
+    csrfToken: text('csrf_token').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

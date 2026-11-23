@@ -16,7 +16,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const app = createApp({ db });
+  // Cookies are Secure except on plain-HTTP localhost development.
+  const secureCookies = env.PUBLIC_BASE_URL.startsWith('https://');
+  const app = createApp({ db, secureCookies });
   const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     console.log(`@quran/server listening on port ${info.port}`);
   });

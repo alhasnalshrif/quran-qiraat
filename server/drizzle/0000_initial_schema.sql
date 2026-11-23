@@ -9,6 +9,7 @@ CREATE TABLE "admin_sessions" (
 	"user_id" uuid NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_ip_hash" text,
+	"csrf_token" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -19,6 +20,8 @@ CREATE TABLE "admin_users" (
 	"role" "admin_role" DEFAULT 'editor' NOT NULL,
 	"disabled" boolean DEFAULT false NOT NULL,
 	"last_login_at" timestamp with time zone,
+	"failed_login_count" integer DEFAULT 0 NOT NULL,
+	"locked_until" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
