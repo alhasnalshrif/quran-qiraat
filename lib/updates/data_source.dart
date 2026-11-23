@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 
+import 'pack_store.dart';
+
 enum PackSourceKind { bundled, downloaded }
 
 class PackState {
@@ -15,6 +17,16 @@ class PackState {
 
   @override
   String toString() => 'PackState($packId: v$version ($sourceKind))';
+
+  @override
+  bool operator ==(Object other) =>
+      other is PackState &&
+      other.packId == packId &&
+      other.version == version &&
+      other.sourceKind == sourceKind;
+
+  @override
+  int get hashCode => Object.hash(packId, version, sourceKind);
 }
 
 abstract interface class QuranDataSource {
@@ -79,4 +91,44 @@ class BundledDataSource implements QuranDataSource {
         sourceKind: PackSourceKind.bundled,
       ),
   };
+}
+
+/// Reads from an active downloaded pack, falling back to [BundledDataSource]
+/// for any pack without an active version (03 §3).
+class PackedDataSource implements QuranDataSource {
+  PackedDataSource({required this.store, this.bundled = const BundledDataSource()});
+
+  final PackStore store;
+  final BundledDataSource bundled;
+
+  @override
+  Future<String> loadString(
+    String packId,
+    String path, {
+    bool cache = true,
+  }) async {
+    final stored = await store.readActive(packId, path);
+    if (stored != null) return stored;
+    return bundled.loadString(packId, path, cache: cache);
+  }
+
+  @override
+  Future<ByteData> load(String packId, String path) async {
+    final bytes = await store.readActiveBytes(packId, path);
+    if (bytes != null) return ByteData.sublistView(Uint8List.fromList(bytes));
+    return bundled.load(packId, path);
+  }
+
+  @override
+  Map<String, PackState> get states {
+    final result = <String, PackState>{...bundled.states};
+    for (final entry in store.state.active.entries) {
+      result[entry.key] = PackState(
+        packId: entry.key,
+        version: entry.value,
+        sourceKind: PackSourceKind.downloaded,
+      );
+    }
+    return result;
+  }
 }
