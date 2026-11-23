@@ -17,7 +17,7 @@ if (!hasReleaseKeys && gradle.startParameter.taskNames.any { it.contains("releas
 }
 
 android {
-    namespace = "com.quran.quran_qiraat"
+    namespace = "com.alshrif.quran"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -27,8 +27,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.quran.quran_qiraat"
+        applicationId = "com.alshrif.quran"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

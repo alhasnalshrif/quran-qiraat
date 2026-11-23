@@ -1,4 +1,4 @@
-package com.quran.quran_qiraat
+package com.alshrif.quran
 
 import io.flutter.embedding.android.FlutterActivity
 
