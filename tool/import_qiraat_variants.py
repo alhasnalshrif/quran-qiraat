@@ -125,6 +125,53 @@ def placement_consistent(entry):
     return any(a in b or b in a for a in reading for b in head)
 
 
+def shubah_edition_notes(data, source_text, ours):
+    pack = json.loads((data / "tajweed-qiraat/shubah.json").read_text(encoding="utf-8"))
+    shubah = json.loads((data / "qiraat/qiraah-shubah.json").read_text(encoding="utf-8"))
+    legend = {entry["code"]: entry["arabic"] for entry in pack["legend"]}
+    if pack["version"] != 2 or pack["riwayah"] != "shubah":
+        raise ValueError("Unsupported Shubah edition pack")
+
+    skipped = []
+    notes = []
+    for surah, ayahs in pack["rules"].items():
+        shubah_ayahs = {str(ayah["id"]): ayah["text"] for ayah in shubah[surah]}
+        for ayah, rules in ayahs.items():
+            key = f"{surah}:{ayah}"
+            hafs_text = source_text[key]
+            hafs_words = hafs_text.split()
+            shubah_words = shubah_ayahs[ayah].split()
+            mapping = token_map(hafs_text, ours.get(key, {})) or {}
+            # The v2 Shubah file stores zero-based token offsets. Verify the
+            # surrounding words before carrying those offsets over to Hafs.
+            marked = {int(index) for index in rules}
+            if (
+                len(hafs_words) != len(shubah_words)
+                or not marked.issubset(mapping)
+                or any(
+                    skeleton(hafs) != skeleton(target)
+                    for index, (hafs, target) in enumerate(zip(hafs_words, shubah_words))
+                    if index not in marked
+                )
+            ):
+                skipped.append(key)
+                continue
+            for index, extents in rules.items():
+                index = int(index)
+                word = mapping[index]
+                notes.append({
+                    "word": ours[key][word],
+                    "segments": [{"ayah": key, "words": [word, word]}],
+                    "editionNote": "، ".join(dict.fromkeys(legend[code] for code, *_ in extents)),
+                    "readings": [
+                        {"text": hafs_words[index], "readers": [], "transmitters": [1]},
+                        {"text": shubah_words[index], "readers": [], "transmitters": [2]},
+                    ],
+                })
+    print(f"{len(notes)} Shubah edition notes mapped; skipped uncertain ayahs: {', '.join(skipped) or 'none'}")
+    return notes
+
+
 def build(engine):
     data = engine / "data"
     raw = json.loads((data / "qiraat-variants.json").read_text(encoding="utf-8"))
@@ -172,6 +219,9 @@ def build(engine):
                     ],
                 }
             )
+    edition_notes = shubah_edition_notes(data, source_text, ours)
+    junctures.extend(edition_notes)
+    placed += len(edition_notes)
     readers = {
         key: {"name": READER_NAMES[int(key)], "position": value["position"]}
         for key, value in raw["readers"].items()
@@ -195,6 +245,7 @@ def build(engine):
         "source": SOURCE,
         "revision": revision,
         "sourceFile": "data/qiraat-variants.json",
+        "editionSources": ["data/tajweed-qiraat/shubah.json", "data/qiraat/qiraah-shubah.json"],
         "origin": "Quran.com (Quran Foundation) qiraat matrix, via Quran Tajweed Engine",
         "readers": readers,
         "transmitters": transmitters,

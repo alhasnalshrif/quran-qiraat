@@ -72,7 +72,8 @@ class DifferencesPanel extends StatelessWidget {
           ];
     final others = [
       for (final juncture in junctures)
-        if (!differing.contains(juncture)) juncture,
+        if (juncture.editionNote == null && !differing.contains(juncture))
+          juncture,
     ];
     final riwayahName = variants?.riwayah(riwayah)?.name ?? riwayah;
     final differences = quran.publishedDifferencesForPairOnPage(
@@ -249,7 +250,7 @@ class DifferencesPanel extends StatelessWidget {
                   const SizedBox(height: 10),
                 ],
               ],
-              if (junctures.isEmpty)
+              if (differing.isEmpty && others.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Text(
@@ -257,7 +258,13 @@ class DifferencesPanel extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              if (junctures.isNotEmpty) const _FarshSourceNote(),
+              if (differing.any((juncture) => juncture.editionNote != null))
+                const _EditionSourceNote(),
+              if ([
+                ...differing,
+                ...others,
+              ].any((juncture) => juncture.editionNote == null))
+                const _FarshSourceNote(),
               if (differences.isNotEmpty) ...[
                 const _DifferenceSectionTitle(
                   title: 'فروق معتمدة',

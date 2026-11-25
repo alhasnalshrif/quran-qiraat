@@ -232,10 +232,7 @@ class _MushafMargin extends StatelessWidget {
             child: const Text('المقارنة النصية'),
           ),
         if (variants != null)
-          PopupMenuItem(
-            value: _openPicker,
-            child: const Text('كل الروايات…'),
-          ),
+          PopupMenuItem(value: _openPicker, child: const Text('كل الروايات…')),
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -275,27 +272,13 @@ class _MushafMargin extends StatelessWidget {
         onTap: () => _showNotes(context, notes),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              children: [
-                Container(
-                  width: 7,
-                  height: 1,
-                  color: _readingColor(context, _rule, _nightRule),
-                ),
-                const SizedBox(width: 4),
-                Text(notes.first.text, style: _wordStyle(context)),
-                if (notes.length > 1)
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 4),
-                    child: Text(
-                      '+${notes.length - 1}',
-                      textDirection: TextDirection.ltr,
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                  ),
-              ],
+          child: Center(
+            child: Text(
+              notes.first.text,
+              style: _wordStyle(context).copyWith(fontSize: 17, height: 1.4),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ),
         ),
@@ -347,7 +330,12 @@ class _MushafMargin extends StatelessWidget {
                   ),
                 const SizedBox(height: 10),
               ],
-              if (notes.any((note) => note.juncture != null))
+              if (notes.any((note) => note.juncture?.editionNote != null))
+                const _EditionSourceNote(),
+              if (notes.any(
+                (note) =>
+                    note.juncture != null && note.juncture!.editionNote == null,
+              ))
                 const _FarshSourceNote(),
             ],
           ),

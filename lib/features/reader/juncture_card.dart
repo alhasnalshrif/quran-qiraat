@@ -48,6 +48,8 @@ class _JunctureCard extends StatelessWidget {
                 color: colors.primary,
               ),
             ),
+            if (juncture.editionNote case final note?)
+              Text(note, style: theme.textTheme.bodySmall),
             const SizedBox(height: 6),
             for (final reading in juncture.readings)
               Padding(
@@ -111,5 +113,15 @@ class _FarshSourceNote extends StatelessWidget {
     _farshSourceNote,
     style: Theme.of(context).textTheme.bodySmall
         ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+  );
+}
+
+class _EditionSourceNote extends StatelessWidget {
+  const _EditionSourceNote();
+
+  @override
+  Widget build(BuildContext context) => Text(
+    'المصدر: علامات طبعة شعبة في Quran Tajweed Engine.',
+    style: Theme.of(context).textTheme.bodySmall,
   );
 }

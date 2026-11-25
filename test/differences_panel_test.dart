@@ -77,7 +77,9 @@ void main() {
 
   test('a transmitter split beats the imam (Shubah at Baqarah 97)', () {
     final variants = quran.qiraatVariants!;
-    final juncture = variants.forWord('2:97:5').single;
+    final juncture = variants
+        .forWord('2:97:5')
+        .singleWhere((entry) => entry.editionNote == null);
     expect(variants.differsFromHafs(juncture, 'shubah'), isTrue);
     expect(variants.readingFor(juncture, 'shubah')!.text, 'لِجَبۡرَئِلَ');
   });

@@ -169,10 +169,12 @@ class Juncture {
     required this.word,
     required this.segments,
     required this.readings,
+    this.editionNote,
   });
 
   factory Juncture.fromJson(Map<String, dynamic> json) => Juncture(
     word: json['word'] as String,
+    editionNote: json['editionNote'] as String?,
     segments: [
       for (final raw in json['segments'] as List)
         JunctureSegment(
@@ -197,6 +199,7 @@ class Juncture {
   final String word;
   final List<JunctureSegment> segments;
   final List<VariantReading> readings;
+  final String? editionNote;
 
   /// Layout word locations (`surah:ayah:word`) covered by this juncture.
   Iterable<String> get locations sync* {

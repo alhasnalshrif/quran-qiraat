@@ -33,7 +33,6 @@ part 'mushaf_margin.dart';
 part 'juncture_card.dart';
 
 const _green = Color(0xff2e624b);
-const _rule = Color(0xffddd7c8);
 const _mutedInk = Color(0xff665e50);
 const _differenceRed = Color(0xffad2626);
 const _differenceNightRed = Color(0xffff8a80);
@@ -1087,7 +1086,7 @@ class _HafsLineLayoutPage extends StatelessWidget {
             scaler.scale(14) <= 21 &&
             notes.values.any((entries) => entries.isNotEmpty);
         final marginWidth = inlineMargin
-            ? (pageWidth * .15).clamp(52.0, 112.0)
+            ? (pageWidth * .17).clamp(62.0, 112.0)
             : 0.0;
         // Without aligned notes the margin's menu sits in the footer, beside
         // the page number, instead of taking a row of its own.

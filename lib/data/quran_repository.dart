@@ -512,7 +512,6 @@ class QuranRepository {
       source.loadString('riwayah-qalun-text', 'quran_qalun.json'),
       MushafLayoutRepository.loadHafsMadani604(source: source),
       source.loadString('mapping-hafs-qalun', 'hafs_to_qalun.json'),
-      source.loadString('published-differences', 'published_differences.json'),
       source.loadString('qiraat-farsh', 'variants.json'),
     ]);
 
@@ -562,27 +561,17 @@ class QuranRepository {
       }
     }
 
-    final published = parsePublishedDifferences(
-      files[6] as String,
-      hafsLayout: layout,
-      ayahs: {
-        QuranReading.hafs: hafsMap,
-        QuranReading.shubah: shubahMap,
-        QuranReading.qalun: qalunMap,
-      },
-    );
     return QuranRepository(
       manifest: manifest,
       hafsByPage: hafsByPage,
       shubah: shubahMap,
       qalun: qalunMap,
-      publishedDifferences: published,
       candidateDifferences: const [],
       ayahCorrespondences: ayahCorrespondences,
       hafsByKey: hafsMap,
       ayahCounterpartIndex: counterpartIndex,
       ayahCorrespondenceIndex: correspondenceIndex,
-      qiraatVariants: QiraatVariants.parse(files[7] as String),
+      qiraatVariants: QiraatVariants.parse(files[6] as String),
       hafsLayout: layout,
     );
   }
