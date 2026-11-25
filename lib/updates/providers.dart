@@ -102,11 +102,12 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
     connectivity: Connectivity(),
     onActivated: () async => ref.invalidate(quranRepositoryProvider),
   );
-});
+}, dependencies: [sharedPreferencesProvider, quranRepositoryProvider]);
 
 /// The saved update channel: stable by default (03 §7).
 final updateChannelProvider = NotifierProvider<UpdateChannelNotifier, String>(
   UpdateChannelNotifier.new,
+  dependencies: [sharedPreferencesProvider],
 );
 
 class UpdateChannelNotifier extends Notifier<String> {
@@ -127,11 +128,12 @@ class UpdateChannelNotifier extends Notifier<String> {
 final remoteConfigProvider = Provider<RemoteConfig>((ref) {
   final manifest = ref.watch(manifestProvider);
   return RemoteConfig(manifest?.config ?? const {});
-});
+}, dependencies: [manifestProvider]);
 
 /// The last verified manifest, and the check that refreshes it (03 §10).
 final manifestProvider = NotifierProvider<ManifestNotifier, Manifest?>(
   ManifestNotifier.new,
+  dependencies: [sharedPreferencesProvider, updateServiceProvider],
 );
 
 class ManifestNotifier extends Notifier<Manifest?> {

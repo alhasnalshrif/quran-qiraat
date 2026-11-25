@@ -12,6 +12,7 @@ import type { ManifestSigner } from './services/manifest-signer.js';
 import type { OneSignal } from './services/onesignal.js';
 import type { PackStorage } from './services/storage.js';
 import { RateLimiter } from './middleware/rate-limit.js';
+import { privacyPage } from './privacy.js';
 
 export interface AppDependencies {
   db: Database;
@@ -72,6 +73,8 @@ export function createApp({
     const healthy = await databaseIsHealthy(db);
     return c.json({ ok: healthy }, healthy ? 200 : 503);
   });
+
+  app.get('/privacy', (c) => c.html(privacyPage));
 
   const publicConfig = { sql: db, signer, cdnBaseUrl, cache, now, storage, rateLimiter: limiter };
   app.route('/v1', publicRoutes(publicConfig));
